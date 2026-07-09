@@ -1,14 +1,19 @@
 :root {
-    --bg: var(--tg-theme-bg-color, #ffffff);
-    --text: var(--tg-theme-text-color, #1a1a1a);
-    --hint: var(--tg-theme-hint-color, #8a8a8e);
-    --link: var(--tg-theme-link-color, #2481cc);
-    --button: var(--tg-theme-button-color, #2481cc);
-    --button-text: var(--tg-theme-button-text-color, #ffffff);
-    --section-bg: var(--tg-theme-secondary-bg-color, #f2f2f7);
+    --brand: #2f6fed;
+    --brand-dark: #1e50b0;
+    --bg: #ffffff;
+    --surface: #f4f7fb;
+    --text: #16233a;
+    --muted: #6b7a90;
+    --border: #e3e9f2;
+    --danger: #e0483d;
+    --success: #2ea043;
 }
 
 * { box-sizing: border-box; }
+
+/* атрибут hidden должен побеждать любые display-правила */
+[hidden] { display: none !important; }
 
 html, body {
     height: 100%;
@@ -19,221 +24,162 @@ html, body {
 
 body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     background: var(--bg);
     color: var(--text);
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-x: none;
+    overscroll-behavior: none;
 }
 
-.loading {
-    display: flex;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
-    color: var(--hint);
-    font-size: 15px;
+.screen { height: 100%; display: flex; flex-direction: column; }
+
+/* ---------- Загрузка ---------- */
+.loading { display: flex; height: 100%; align-items: center; justify-content: center; }
+.spinner {
+    width: 34px; height: 34px;
+    border: 3px solid var(--border);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.screen { height: 100%; }
-
-/* ---------- Регистрация ---------- */
-
-#screen-register {
-    padding: 16px;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.card { max-width: 480px; margin: 0 auto; }
-
-h1 { font-size: 22px; margin: 8px 0 4px; }
-
-.subtitle {
-    margin: 0 0 20px;
-    color: var(--hint);
-    font-size: 14px;
-    line-height: 1.4;
-}
-
-form { display: flex; flex-direction: column; gap: 16px; }
-
-label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--hint);
-}
-
-.req { color: #e0483d; }
-
-input, textarea {
+/* ---------- Кнопки ---------- */
+.btn {
     width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    padding: 12px 14px;
-    font-size: 16px;
-    color: var(--text);
-    background: var(--section-bg);
-    border: 1px solid transparent;
-    border-radius: 10px;
-    outline: none;
-    transition: border-color .15s;
-    font-family: inherit;
-}
-
-.submit-btn {
-    width: 100%;
-    padding: 14px;
-    margin-top: 4px;
+    padding: 15px 18px;
     font-size: 16px;
     font-weight: 600;
     border: none;
-    border-radius: 10px;
-    background: var(--button);
-    color: var(--button-text);
+    border-radius: 12px;
     cursor: pointer;
-    transition: background .15s, color .15s, opacity .15s;
+    font-family: inherit;
+    transition: background .15s, color .15s, border-color .15s, opacity .15s;
 }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:active { background: var(--brand-dark); }
+.btn-primary:disabled { background: var(--surface); color: var(--muted); cursor: default; }
+.btn-outline { background: #fff; color: var(--brand); border: 1.5px solid var(--border); }
+.btn-outline:active { background: var(--surface); }
 
-.submit-btn:disabled {
-    background: var(--section-bg);
-    color: var(--hint);
-    cursor: default;
+/* ---------- Главный экран ---------- */
+#screen-home { justify-content: center; align-items: center; padding: 24px; }
+.home { width: 100%; max-width: 400px; text-align: center; }
+.logo {
+    width: 64px; height: 64px; margin: 0 auto 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px rgba(47, 111, 237, .28);
 }
+.brand { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -.5px; }
+.welcome { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 28px; }
+.home-actions { display: flex; flex-direction: column; gap: 12px; }
 
-input:focus, textarea:focus { border-color: var(--link); }
-input::placeholder, textarea::placeholder { color: var(--hint); opacity: .7; }
-
-.error { margin: 0; color: #e0483d; font-size: 14px; }
-
-/* ---------- Чат ---------- */
-
-#screen-chat {
-    display: flex;
-    flex-direction: column;
+.lang-wrap { position: relative; }
+.lang-menu {
+    margin-top: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(22, 35, 58, .1);
 }
+.lang-option {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px;
+    background: #fff; border: none;
+    font-size: 16px; color: var(--text);
+    cursor: pointer; font-family: inherit;
+    border-bottom: 1px solid var(--border);
+}
+.lang-option:last-child { border-bottom: none; }
+.lang-option:active { background: var(--surface); }
+.lang-option.active { color: var(--brand); font-weight: 600; }
+.flag { flex: 0 0 auto; display: inline-flex; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); line-height: 0; }
 
-.chat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--section-bg);
+/* ---------- Верхняя панель ---------- */
+.topbar {
     flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    min-height: 52px;
 }
-
-.chat-title { font-size: 16px; font-weight: 600; }
-.chat-subtitle { font-size: 12px; color: var(--hint); }
-
+.topbar-heading { flex: 1 1 auto; min-width: 0; }
+.topbar-title { font-size: 16px; font-weight: 600; }
+.topbar-subtitle { font-size: 12px; color: var(--muted); }
+.back-btn {
+    flex: 0 0 auto;
+    width: 34px; height: 34px;
+    border: none; background: var(--surface); color: var(--brand);
+    border-radius: 9px; font-size: 24px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
 .reset-btn {
     flex: 0 0 auto;
-    padding: 7px 12px;
-    font-size: 13px;
-    color: var(--link);
-    background: var(--section-bg);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
+    padding: 7px 12px; font-size: 13px;
+    color: var(--brand); background: var(--surface);
+    border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
 }
 
+/* ---------- Регистрация ---------- */
+.scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 16px; }
+.card { max-width: 480px; margin: 0 auto; }
+.subtitle { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+form { display: flex; flex-direction: column; gap: 16px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.req { color: var(--danger); }
+
+input, textarea {
+    width: 100%; min-width: 0; max-width: 100%;
+    padding: 12px 14px; font-size: 16px;
+    color: var(--text); background: var(--surface);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    outline: none; transition: border-color .15s; font-family: inherit;
+}
+input:focus, textarea:focus { border-color: var(--brand); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
+.error { margin: 0; color: var(--danger); font-size: 14px; }
+#reg-submit { margin-top: 4px; }
+
+/* ---------- Чат ---------- */
 .messages {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex: 1 1 auto; overflow-y: auto; overflow-x: hidden;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
 }
-
 .bubble {
-    max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 16px;
-    font-size: 15px;
-    line-height: 1.45;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
+    max-width: 85%; padding: 10px 14px; border-radius: 16px;
+    font-size: 15px; line-height: 1.45; word-wrap: break-word; overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
-
-.bubble.user {
-    align-self: flex-end;
-    background: var(--button);
-    color: var(--button-text);
-    border-bottom-right-radius: 4px;
-}
-
-.bubble.ai {
-    align-self: flex-start;
-    background: var(--section-bg);
-    color: var(--text);
-    border-bottom-left-radius: 4px;
-}
-
-.bubble.error {
-    align-self: flex-start;
-    background: #fbe9e7;
-    color: #c0392b;
-    border-bottom-left-radius: 4px;
-}
-
-/* Форматирование HTML-ответа ИИ */
-.bubble.ai p { margin: 0 0 8px; }
-.bubble.ai p:last-child { margin-bottom: 0; }
+.bubble.user { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 4px; }
+.bubble.ai { align-self: flex-start; background: var(--surface); color: var(--text); border-bottom-left-radius: 4px; }
+.bubble.error { align-self: flex-start; background: #fbe9e7; color: #c0392b; border-bottom-left-radius: 4px; }
+.bubble.ai p { margin: 0 0 8px; } .bubble.ai p:last-child { margin-bottom: 0; }
 .bubble.ai ul, .bubble.ai ol { margin: 4px 0 8px; padding-left: 20px; }
-.bubble.ai a { color: var(--link); }
-.bubble.ai table { width: 100%; border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
-.bubble.ai td, .bubble.ai th { border: 1px solid var(--hint); padding: 4px 8px; font-size: 14px; }
-.bubble.ai pre { overflow-x: auto; background: rgba(127,127,127,.15); padding: 8px; border-radius: 8px; }
+.bubble.ai a { color: var(--brand); }
 
-.sources {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(127,127,127,.25);
-    font-size: 13px;
-}
-.sources-title { color: var(--hint); margin-bottom: 4px; }
-.sources a { display: block; color: var(--link); margin-bottom: 2px; }
+.sources { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(107,122,144,.25); font-size: 13px; }
+.sources-title { color: var(--muted); margin-bottom: 4px; }
+.sources a { display: block; color: var(--brand); margin-bottom: 2px; }
 
-/* Индикатор «печатает…» */
 .typing { display: inline-flex; gap: 4px; align-items: center; }
-.typing span {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--hint); opacity: .5;
-    animation: blink 1.2s infinite both;
-}
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .5; animation: blink 1.2s infinite both; }
 .typing span:nth-child(2) { animation-delay: .2s; }
 .typing span:nth-child(3) { animation-delay: .4s; }
 @keyframes blink { 0%, 80%, 100% { opacity: .3; } 40% { opacity: .9; } }
 
 .chat-form {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 10px 12px;
-    border-top: 1px solid var(--section-bg);
+    flex: 0 0 auto; display: flex; align-items: flex-end; gap: 8px;
+    padding: 10px 12px; border-top: 1px solid var(--border);
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
-
-#chat-input {
-    flex: 1 1 auto;
-    max-height: 120px;
-    resize: none;
-    border-radius: 18px;
-}
-
+#chat-input { max-height: 120px; resize: none; border-radius: 18px; }
 .send-btn {
-    flex: 0 0 auto;
-    width: 44px;
-    height: 44px;
-    border: none;
-    border-radius: 50%;
-    background: var(--button);
-    color: var(--button-text);
-    font-size: 18px;
-    cursor: pointer;
+    flex: 0 0 auto; width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: var(--brand); color: #fff; font-size: 18px; cursor: pointer;
 }
 .send-btn:disabled { opacity: .5; cursor: default; }

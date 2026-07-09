@@ -3,63 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Medinternet</title>
+    <title>Мединтернет</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <!-- Загрузка -->
-    <div id="loading" class="loading">Загрузка…</div>
+    <div id="loading" class="loading"><div class="spinner"></div></div>
 
-    <!-- Экран регистрации -->
-    <section id="screen-register" class="screen" hidden>
-        <div class="card">
-            <h1>Регистрация</h1>
-            <p class="subtitle">Заполните данные, чтобы продолжить работу с Medinternet.</p>
+    <!-- Главный экран -->
+    <section id="screen-home" class="screen" hidden>
+        <div class="home">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v18M3 12h18"></path>
+                </svg>
+            </div>
+            <h1 class="brand">Мединтернет</h1>
+            <p class="welcome" data-i18n="welcome">Добро пожаловать в Мединтернет</p>
 
-            <form id="reg-form" novalidate>
-                <label>
-                    ФИО <span class="req">*</span>
-                    <input type="text" name="full_name" id="full_name"
-                           placeholder="Иванов Иван Иванович" autocomplete="name" required>
-                </label>
-                <label>
-                    Телефон
-                    <input type="tel" name="phone" id="phone"
-                           placeholder="+7 900 000-00-00" autocomplete="tel" inputmode="tel">
-                </label>
-                <label>
-                    Email
-                    <input type="email" name="email" id="email"
-                           placeholder="you@example.com" autocomplete="email" inputmode="email">
-                </label>
-                <label>
-                    Дата рождения
-                    <input type="date" name="birth_date" id="birth_date">
-                </label>
-                <p id="reg-error" class="error" hidden></p>
+            <div class="home-actions">
+                <button id="home-primary" class="btn btn-primary" type="button"></button>
 
-                <button type="submit" id="reg-submit" class="submit-btn" disabled>
-                    Зарегистрироваться
-                </button>
-            </form>
+                <div class="lang-wrap">
+                    <button id="lang-button" class="btn btn-outline" type="button" data-i18n="chooseLang">Выбрать язык</button>
+                    <div id="lang-menu" class="lang-menu" hidden>
+                        <button class="lang-option" type="button" data-lang="ru">
+                            <span class="flag">
+                                <svg viewBox="0 0 24 16" width="22" height="15"><rect width="24" height="16" fill="#fff"/><rect y="5.33" width="24" height="5.34" fill="#0039A6"/><rect y="10.67" width="24" height="5.33" fill="#D52B1E"/></svg>
+                            </span>
+                            Русский
+                        </button>
+                        <button class="lang-option" type="button" data-lang="en">
+                            <span class="flag">
+                                <svg viewBox="0 0 60 30" width="22" height="15"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="2"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg>
+                            </span>
+                            English
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <!-- Экран чата с нейросетью -->
-    <section id="screen-chat" class="screen" hidden>
-        <header class="chat-header">
-            <div class="chat-heading">
-                <div class="chat-title">Медицинский ИИ-ассистент</div>
-                <div class="chat-subtitle">RXCode AI</div>
-            </div>
-            <button id="chat-reset" class="reset-btn" type="button" title="Новый диалог">Новый диалог</button>
+    <!-- Экран регистрации -->
+    <section id="screen-register" class="screen" hidden>
+        <header class="topbar">
+            <button class="back-btn" type="button" data-back aria-label="Назад">‹</button>
+            <span class="topbar-title" data-i18n="regTitle">Регистрация</span>
         </header>
+        <div class="scroll">
+            <div class="card">
+                <p class="subtitle" data-i18n="regSubtitle">Заполните данные, чтобы продолжить работу с Мединтернет.</p>
+                <form id="reg-form" novalidate>
+                    <label>
+                        <span data-i18n="fioLabel">ФИО</span> <span class="req">*</span>
+                        <input type="text" id="full_name" autocomplete="name" data-i18n-ph="fioPh" placeholder="Иванов Иван Иванович" required>
+                    </label>
+                    <label>
+                        <span data-i18n="phoneLabel">Телефон</span> <span class="req">*</span>
+                        <input type="tel" id="phone" autocomplete="tel" inputmode="tel" data-i18n-ph="phonePh" placeholder="+7 900 000-00-00">
+                    </label>
+                    <label>
+                        <span data-i18n="emailLabel">Email</span> <span class="req">*</span>
+                        <input type="email" id="email" autocomplete="email" inputmode="email" data-i18n-ph="emailPh" placeholder="you@example.com">
+                    </label>
+                    <label>
+                        <span data-i18n="birthLabel">Дата рождения</span> <span class="req">*</span>
+                        <input type="date" id="birth_date">
+                    </label>
+                    <p id="reg-error" class="error" hidden></p>
+                    <button type="submit" id="reg-submit" class="btn btn-primary" data-i18n="submit" disabled>Зарегистрироваться</button>
+                </form>
+            </div>
+        </div>
+    </section>
 
+    <!-- Экран чата -->
+    <section id="screen-chat" class="screen" hidden>
+        <header class="topbar">
+            <button class="back-btn" type="button" data-back aria-label="Назад">‹</button>
+            <div class="topbar-heading">
+                <div class="topbar-title" data-i18n="chatTitle">Медицинский поисковик</div>
+                <div class="topbar-subtitle">RXCode AI</div>
+            </div>
+            <button id="chat-reset" class="reset-btn" type="button" data-i18n="newDialog">Новый диалог</button>
+        </header>
         <div id="messages" class="messages"></div>
-
         <form id="chat-form" class="chat-form">
-            <textarea id="chat-input" rows="1" placeholder="Задайте вопрос…" autocomplete="off"></textarea>
+            <textarea id="chat-input" rows="1" autocomplete="off" data-i18n-ph="inputPh" placeholder="Задайте вопрос…"></textarea>
             <button type="submit" id="chat-send" class="send-btn" aria-label="Отправить">➤</button>
         </form>
     </section>
