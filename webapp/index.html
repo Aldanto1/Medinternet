@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Регистрация — Medinternet</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <main class="card">
+        <h1>Регистрация</h1>
+        <p class="subtitle">Заполните данные, чтобы продолжить работу с Medinternet.</p>
+
+        <form id="reg-form" novalidate>
+            <label>
+                ФИО <span class="req">*</span>
+                <input type="text" name="full_name" id="full_name"
+                       placeholder="Иванов Иван Иванович" autocomplete="name" required>
+            </label>
+
+            <label>
+                Телефон
+                <input type="tel" name="phone" id="phone"
+                       placeholder="+7 900 000-00-00" autocomplete="tel"
+                       inputmode="tel">
+            </label>
+
+            <label>
+                Email
+                <input type="email" name="email" id="email"
+                       placeholder="you@example.com" autocomplete="email"
+                       inputmode="email">
+            </label>
+
+            <label>
+                Дата рождения
+                <input type="date" name="birth_date" id="birth_date">
+            </label>
+
+            <p id="error" class="error" hidden></p>
+        </form>
+
+        <div id="status" class="status" hidden></div>
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>

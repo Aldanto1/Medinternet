@@ -1,0 +1,92 @@
+:root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #1a1a1a);
+    --hint: var(--tg-theme-hint-color, #8a8a8e);
+    --link: var(--tg-theme-link-color, #2481cc);
+    --button: var(--tg-theme-button-color, #2481cc);
+    --button-text: var(--tg-theme-button-text-color, #ffffff);
+    --section-bg: var(--tg-theme-secondary-bg-color, #f2f2f7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.card {
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 22px;
+    margin: 8px 0 4px;
+}
+
+.subtitle {
+    margin: 0 0 20px;
+    color: var(--hint);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--hint);
+}
+
+.req { color: #e0483d; }
+
+input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--section-bg);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .15s;
+}
+
+input:focus {
+    border-color: var(--link);
+}
+
+input::placeholder {
+    color: var(--hint);
+    opacity: .7;
+}
+
+.error {
+    margin: 0;
+    color: #e0483d;
+    font-size: 14px;
+}
+
+.status {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 15px;
+    color: var(--hint);
+}
+
+.status.success {
+    color: #2ea043;
+    font-weight: 600;
+}
