@@ -1,6 +1,6 @@
 :root {
-    --brand: #2f6fed;
-    --brand-dark: #1e50b0;
+    --brand: #16a79c;
+    --brand-dark: #0f857b;
     --bg: #ffffff;
     --surface: #f4f7fb;
     --text: #16233a;
@@ -65,39 +65,15 @@ body {
 /* ---------- Главный экран ---------- */
 #screen-home { justify-content: center; align-items: center; padding: 24px; }
 .home { width: 100%; max-width: 400px; text-align: center; }
-.logo {
-    width: 64px; height: 64px; margin: 0 auto 16px;
-    border-radius: 18px;
-    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 20px rgba(47, 111, 237, .28);
+.logo-img {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+    margin: 0 auto 22px;
 }
-.brand { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -.5px; }
 .welcome { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 28px; }
 .home-actions { display: flex; flex-direction: column; gap: 12px; }
-
-.lang-wrap { position: relative; }
-.lang-menu {
-    margin-top: 8px;
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(22, 35, 58, .1);
-}
-.lang-option {
-    width: 100%;
-    display: flex; align-items: center; gap: 12px;
-    padding: 13px 16px;
-    background: #fff; border: none;
-    font-size: 16px; color: var(--text);
-    cursor: pointer; font-family: inherit;
-    border-bottom: 1px solid var(--border);
-}
-.lang-option:last-child { border-bottom: none; }
-.lang-option:active { background: var(--surface); }
-.lang-option.active { color: var(--brand); font-weight: 600; }
-.flag { flex: 0 0 auto; display: inline-flex; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); line-height: 0; }
 
 /* ---------- Верхняя панель ---------- */
 .topbar {

@@ -12,13 +12,13 @@ from config import WEBAPP_URL
 router = Router()
 
 
-def _registration_keyboard() -> InlineKeyboardMarkup | None:
-    """Кнопка открытия mini app с регистрацией (если задан WEBAPP_URL)."""
+def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
+    """Кнопка открытия mini app (если задан WEBAPP_URL)."""
     if not WEBAPP_URL:
         return None
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📝 Регистрация", web_app=WebAppInfo(url=WEBAPP_URL))]
+            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
         ]
     )
 
@@ -26,13 +26,13 @@ def _registration_keyboard() -> InlineKeyboardMarkup | None:
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     """Обработчик команды /start."""
-    kb = _registration_keyboard()
-    text = (
-        f"👋 Здравствуйте, <b>{message.from_user.full_name}</b>!\n\n"
-        "Я — бот <b>Medinternet</b>.\n"
-    )
+    kb = _miniapp_keyboard()
+    text = f"👋 Здравствуйте, <b>{message.from_user.full_name}</b>!\n\n"
     if kb:
-        text += "Нажмите кнопку ниже, чтобы пройти регистрацию."
+        text += (
+            "Для пользования нашим <b>медицинским поисковиком</b> "
+            "откройте «Мини Апп» и пройдите регистрацию."
+        )
     else:
         text += "Используйте /help для просмотра доступных команд."
     await message.answer(text, reply_markup=kb)

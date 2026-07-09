@@ -55,7 +55,7 @@ async def main():
         try:
             await bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
-                    text="Регистрация", web_app=WebAppInfo(url=WEBAPP_URL)
+                    text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL)
                 )
             )
             logger.info(f"Mini app доступен по адресу: {WEBAPP_URL}")

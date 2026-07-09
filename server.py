@@ -200,6 +200,7 @@ def build_app() -> web.Application:
     app.router.add_get("/", _file("index.html"))
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
+    app.router.add_get("/logo.png", _file("logo.png"))
     app.router.add_post("/api/register", handle_register)
     app.router.add_post("/api/me", handle_me)
     app.router.add_post("/api/ai/message", handle_ai_message)
