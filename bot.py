@@ -49,18 +49,25 @@ async def main():
     # Поднимаем веб-сервер mini app (в том же процессе)
     runner = await start_webserver()
 
-    # Настраиваем кнопку меню на открытие mini app
+    # Настраиваем кнопку меню на открытие mini app.
+    # Ошибка здесь (например, неверный URL) не должна ронять весь бот.
     if WEBAPP_URL:
-        await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(
-                text="Регистрация", web_app=WebAppInfo(url=WEBAPP_URL)
+        try:
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="Регистрация", web_app=WebAppInfo(url=WEBAPP_URL)
+                )
             )
-        )
-        logger.info(f"Mini app доступен по адресу: {WEBAPP_URL}")
+            logger.info(f"Mini app доступен по адресу: {WEBAPP_URL}")
+        except Exception as e:
+            logger.warning(
+                f"Не удалось установить кнопку меню (WEBAPP_URL={WEBAPP_URL!r}): {e}. "
+                "Проверьте, что адрес начинается с https://"
+            )
     else:
         logger.warning(
             "WEBAPP_URL не задан — кнопка регистрации не появится. "
-            "Укажите публичный HTTPS-адрес туннеля в env/.env"
+            "Укажите публичный HTTPS-адрес в переменных окружения"
         )
 
     logger.info("Бот запускается...")

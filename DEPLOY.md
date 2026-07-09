@@ -20,6 +20,8 @@ Mini app открывается на телефонах пользователе
 | `BOT_TOKEN`    | Токен бота от @BotFather                                             |
 | `DATABASE_URL` | Строка подключения Neon (та же, что в `env/.env`)                    |
 | `WEBAPP_URL`   | Публичный адрес сервиса, напр. `https://medinternet.up.railway.app` |
+| `NEURO_API_URL`| Базовый адрес RXCode AI API, без `/api` в конце                      |
+| `NEURO_API_KEY`| Bearer-токен RXCode AI API                                           |
 
 - `PORT` задаёт платформа сама — вручную не трогать.
 - `PROXY_URL` в облаке **не нужен** (сеть чистая) — не задавать.

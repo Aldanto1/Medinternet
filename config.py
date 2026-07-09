@@ -21,6 +21,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # Публичный HTTPS-адрес, по которому Telegram открывает mini app
 # (например, ссылка от cloudflared-туннеля). Без него кнопка регистрации не покажется.
 WEBAPP_URL = os.getenv("WEBAPP_URL")
+if WEBAPP_URL:
+    # Нормализуем: Telegram принимает только полные https-ссылки без слэша в конце
+    WEBAPP_URL = WEBAPP_URL.strip().rstrip("/")
+    if not WEBAPP_URL.startswith(("http://", "https://")):
+        WEBAPP_URL = "https://" + WEBAPP_URL
 # Адрес и порт веб-сервера mini app.
 # На облачном хостинге платформа задаёт порт через переменную PORT,
 # а слушать нужно на 0.0.0.0. Локально по умолчанию тоже подходит.
@@ -30,6 +35,17 @@ WEBAPP_PORT = int(os.getenv("PORT") or os.getenv("WEBAPP_PORT") or "8080")
 # API сервера
 API_SERVER_URL = os.getenv("API_SERVER_URL")
 API_SERVER_KEY = os.getenv("API_SERVER_KEY")
+
+# Нейросеть в mini app.
+# Сейчас подключён OpenRouter (временно, вместо RXCode AI):
+#   NEURO_API_URL = https://openrouter.ai/api/v1
+# Позже заменим на базовый адрес RXCode AI API.
+NEURO_API_URL = os.getenv("NEURO_API_URL")
+if NEURO_API_URL:
+    NEURO_API_URL = NEURO_API_URL.strip().rstrip("/")
+NEURO_API_KEY = os.getenv("NEURO_API_KEY")
+# Модель OpenRouter (можно поменять без правок кода)
+NEURO_MODEL = os.getenv("NEURO_MODEL", "openai/gpt-4o-mini")
 
 
 def get_windows_socks_proxy():

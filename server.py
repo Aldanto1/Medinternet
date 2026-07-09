@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl
 
 from aiohttp import web
 
+import ai_client
 import db
 from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT
 
@@ -46,7 +47,7 @@ def validate_init_data(init_data: str) -> dict | None:
 async def handle_register(request: web.Request) -> web.Response:
     try:
         body = await request.json()
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         return web.json_response({"ok": False, "error": "Неверный формат запроса"}, status=400)
 
     parsed = validate_init_data(body.get("initData", ""))
@@ -94,6 +95,99 @@ async def handle_register(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def _authenticated_user(request: web.Request):
+    """Разбирает и проверяет initData из тела запроса.
+
+    Возвращает (tg_user_dict, None) при успехе или (None, web.Response) с ошибкой.
+    """
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        return None, None, web.json_response(
+            {"ok": False, "error": "Неверный формат запроса"}, status=400
+        )
+    parsed = validate_init_data(body.get("initData", ""))
+    if parsed is None:
+        return None, None, web.json_response(
+            {"ok": False, "error": "Проверка Telegram не пройдена"}, status=403
+        )
+    try:
+        tg_user = json.loads(parsed.get("user", "{}"))
+    except json.JSONDecodeError:
+        tg_user = {}
+    if not tg_user.get("id"):
+        return None, None, web.json_response(
+            {"ok": False, "error": "Нет данных пользователя Telegram"}, status=400
+        )
+    return tg_user, body, None
+
+
+async def handle_me(request: web.Request) -> web.Response:
+    """Статус пользователя: зарегистрирован ли и доступен ли ИИ-чат."""
+    tg_user, _body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+    registered = await db.user_exists(tg_user["id"])
+    return web.json_response(
+        {"ok": True, "registered": registered, "ai_enabled": ai_client.is_configured()}
+    )
+
+
+# Сколько последних сообщений диалога держим в контексте (ограничивает расход токенов)
+MAX_HISTORY = 20
+
+
+async def handle_ai_message(request: web.Request) -> web.Response:
+    """Отправляет вопрос пользователя в нейросеть с учётом истории диалога."""
+    tg_user, body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+
+    if not ai_client.is_configured():
+        return web.json_response(
+            {"ok": False, "error": "Нейросеть не настроена"}, status=503
+        )
+
+    message = (body.get("message") or "").strip()
+    if not message:
+        return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
+
+    tg_id = tg_user["id"]
+    history = await db.get_conversation(tg_id)
+
+    messages = (
+        [{"role": "system", "content": ai_client.SYSTEM_PROMPT}]
+        + history
+        + [{"role": "user", "content": message}]
+    )
+
+    try:
+        reply = await ai_client.chat_completion(messages)
+    except ai_client.AIError as e:
+        logger.warning("Ошибка нейросети: %s", e)
+        return web.json_response(
+            {"ok": False, "error": "Нейросеть недоступна, попробуйте позже"}, status=502
+        )
+
+    # Дописываем обмен в историю и обрезаем до последних MAX_HISTORY сообщений
+    history.append({"role": "user", "content": message})
+    history.append({"role": "assistant", "content": reply})
+    await db.save_conversation(tg_id, history[-MAX_HISTORY:])
+
+    return web.json_response(
+        {"ok": True, "answer_html": None, "answer_md": reply, "sources": []}
+    )
+
+
+async def handle_ai_reset(request: web.Request) -> web.Response:
+    """Сбрасывает историю диалога, чтобы начать новый разговор."""
+    tg_user, _body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+    await db.clear_conversation(tg_user["id"])
+    return web.json_response({"ok": True})
+
+
 def _file(name: str):
     async def handler(_request: web.Request) -> web.Response:
         return web.FileResponse(WEBAPP_DIR / name)
@@ -107,6 +201,9 @@ def build_app() -> web.Application:
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
     app.router.add_post("/api/register", handle_register)
+    app.router.add_post("/api/me", handle_me)
+    app.router.add_post("/api/ai/message", handle_ai_message)
+    app.router.add_post("/api/ai/reset", handle_ai_reset)
     return app
 
 
