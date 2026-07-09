@@ -7,6 +7,11 @@ const els = {
     chat: document.getElementById("screen-chat"),
     regForm: document.getElementById("reg-form"),
     regError: document.getElementById("reg-error"),
+    regSubmit: document.getElementById("reg-submit"),
+    fullName: document.getElementById("full_name"),
+    phone: document.getElementById("phone"),
+    email: document.getElementById("email"),
+    birthDate: document.getElementById("birth_date"),
     messages: document.getElementById("messages"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
@@ -33,15 +38,8 @@ function showScreen(name) {
     els.loading.hidden = name !== "loading";
     els.register.hidden = name !== "register";
     els.chat.hidden = name !== "chat";
-
-    if (!tg?.MainButton) return;
-    if (name === "register") {
-        tg.MainButton.setText("Зарегистрироваться");
-        tg.MainButton.show();
-        tg.MainButton.enable();
-    } else {
-        tg.MainButton.hide();
-    }
+    // Кнопку Telegram не используем — у формы своя кнопка «Зарегистрироваться»
+    tg?.MainButton?.hide();
 }
 
 // ---------- Инициализация ----------
@@ -61,10 +59,27 @@ async function init() {
 
 function prefillName() {
     const u = tg?.initDataUnsafe?.user;
-    if (!u) return;
-    const name = [u.first_name, u.last_name].filter(Boolean).join(" ");
-    const field = document.getElementById("full_name");
-    if (name && field && !field.value) field.value = name;
+    if (u) {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(" ");
+        if (name && !els.fullName.value) els.fullName.value = name;
+    }
+    updateRegButton();
+}
+
+// Кнопка активна (синяя), только когда все поля заполнены и email корректен
+function regValid() {
+    const email = els.email.value.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return Boolean(
+        els.fullName.value.trim() &&
+        els.phone.value.trim() &&
+        email && emailOk &&
+        els.birthDate.value
+    );
+}
+
+function updateRegButton() {
+    els.regSubmit.disabled = !regValid();
 }
 
 // ---------- Регистрация ----------
@@ -72,21 +87,17 @@ function prefillName() {
 async function submitRegistration() {
     els.regError.hidden = true;
 
+    if (!regValid()) return;
+
     const payload = {
-        full_name: document.getElementById("full_name").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        birth_date: document.getElementById("birth_date").value,
+        full_name: els.fullName.value.trim(),
+        phone: els.phone.value.trim(),
+        email: els.email.value.trim(),
+        birth_date: els.birthDate.value,
     };
 
-    if (!payload.full_name) {
-        return showRegError("Пожалуйста, укажите ФИО.");
-    }
-    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-        return showRegError("Проверьте корректность email.");
-    }
-
-    if (tg?.MainButton) { tg.MainButton.showProgress(); tg.MainButton.disable(); }
+    els.regSubmit.disabled = true;
+    els.regSubmit.textContent = "Отправка…";
     try {
         await api("/api/register", payload);
         tg?.HapticFeedback?.notificationOccurred("success");
@@ -95,7 +106,8 @@ async function submitRegistration() {
     } catch (e) {
         showRegError(e.message);
     } finally {
-        if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.enable(); }
+        els.regSubmit.textContent = "Зарегистрироваться";
+        updateRegButton();
     }
 }
 
@@ -219,7 +231,11 @@ function autoGrow() {
 // ---------- События ----------
 
 els.regForm.addEventListener("submit", (e) => { e.preventDefault(); submitRegistration(); });
-if (tg?.MainButton) tg.MainButton.onClick(submitRegistration);
+// Живая подсветка кнопки при заполнении полей
+for (const f of [els.fullName, els.phone, els.email, els.birthDate]) {
+    f.addEventListener("input", updateRegButton);
+    f.addEventListener("change", updateRegButton);
+}
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);
