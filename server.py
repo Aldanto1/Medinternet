@@ -8,10 +8,11 @@ from pathlib import Path
 from urllib.parse import parse_qsl
 
 from aiohttp import web
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import ai_client
 import db
-from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT
+from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ async def handle_register(request: web.Request) -> web.Response:
                 {"ok": False, "error": "Неверная дата рождения"}, status=400
             )
 
+    was_registered = await db.user_exists(tg_id)
     await db.upsert_user(
         telegram_id=tg_id,
         username=tg_user.get("username"),
@@ -92,7 +94,46 @@ async def handle_register(request: web.Request) -> web.Response:
         birth_date=birth_date,
     )
     logger.info("Зарегистрирован пользователь %s (%s)", tg_id, full_name)
+
+    # Только при ПЕРВОЙ регистрации: удаляем стартовое приглашение и шлём поздравление
+    if not was_registered:
+        await _notify_registered(request.app.get("bot"), tg_id)
+
     return web.json_response({"ok": True})
+
+
+_CONGRATS = (
+    "🎉 Поздравляем с успешной регистрацией!\n"
+    "Откройте наш Mini App для использования медицинского поисковика."
+)
+
+
+def _miniapp_kb() -> InlineKeyboardMarkup | None:
+    if not WEBAPP_URL:
+        return None
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
+        ]
+    )
+
+
+async def _notify_registered(bot, tg_id: int) -> None:
+    """Удаляет стартовое сообщение и отправляет поздравление после регистрации."""
+    if bot is None:
+        return
+    prompt = await db.get_start_prompt(tg_id)
+    if prompt:
+        try:
+            await bot.delete_message(prompt["chat_id"], prompt["message_id"])
+        except Exception as e:
+            # Сообщение старше 48ч или уже удалено — не критично
+            logger.info("Не удалось удалить стартовое сообщение %s: %s", tg_id, e)
+        await db.delete_start_prompt(tg_id)
+    try:
+        await bot.send_message(tg_id, _CONGRATS, reply_markup=_miniapp_kb())
+    except Exception as e:
+        logger.warning("Не удалось отправить поздравление %s: %s", tg_id, e)
 
 
 async def _authenticated_user(request: web.Request):
@@ -195,8 +236,9 @@ def _file(name: str):
     return handler
 
 
-def build_app() -> web.Application:
+def build_app(bot=None) -> web.Application:
     app = web.Application()
+    app["bot"] = bot  # нужен для уведомлений после регистрации
     app.router.add_get("/", _file("index.html"))
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
@@ -208,9 +250,9 @@ def build_app() -> web.Application:
     return app
 
 
-async def start_webserver() -> web.AppRunner:
+async def start_webserver(bot=None) -> web.AppRunner:
     """Поднимает веб-сервер на локальном порту и возвращает runner для остановки."""
-    runner = web.AppRunner(build_app())
+    runner = web.AppRunner(build_app(bot))
     await runner.setup()
     site = web.TCPSite(runner, WEBAPP_HOST, WEBAPP_PORT)
     await site.start()

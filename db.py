@@ -50,6 +50,18 @@ async def init() -> None:
             )
             """
         )
+        # Стартовое сообщение бота (с приглашением зарегистрироваться) —
+        # чтобы удалить его после успешной регистрации.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS start_prompts (
+                telegram_id BIGINT PRIMARY KEY,
+                chat_id     BIGINT NOT NULL,
+                message_id  BIGINT NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
 
 
 async def close() -> None:
@@ -148,4 +160,42 @@ async def clear_conversation(telegram_id: int) -> None:
     async with _pool.acquire() as conn:
         await conn.execute(
             "DELETE FROM ai_conversations WHERE telegram_id = $1", telegram_id
+        )
+
+
+async def set_start_prompt(telegram_id: int, chat_id: int, message_id: int) -> None:
+    """Запоминает id стартового сообщения (приглашения к регистрации)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO start_prompts (telegram_id, chat_id, message_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (telegram_id) DO UPDATE SET
+                chat_id    = EXCLUDED.chat_id,
+                message_id = EXCLUDED.message_id,
+                created_at = now()
+            """,
+            telegram_id,
+            chat_id,
+            message_id,
+        )
+
+
+async def get_start_prompt(telegram_id: int):
+    """Возвращает запись стартового сообщения (chat_id, message_id) или None."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT chat_id, message_id FROM start_prompts WHERE telegram_id = $1",
+            telegram_id,
+        )
+
+
+async def delete_start_prompt(telegram_id: int) -> None:
+    """Удаляет запись о стартовом сообщении."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM start_prompts WHERE telegram_id = $1", telegram_id
         )
