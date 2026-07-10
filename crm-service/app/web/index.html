@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мединтернет — CRM рассылки</title>
+    <link rel="stylesheet" href="/panel.css">
+</head>
+<body>
+    <!-- Экран входа -->
+    <section id="login-screen" class="center">
+        <form id="login-form" class="card">
+            <h1>CRM рассылки</h1>
+            <p class="muted">Вход для сотрудника</p>
+            <label>Email
+                <input type="email" id="login-email" autocomplete="username" required>
+            </label>
+            <label>Пароль
+                <input type="password" id="login-password" autocomplete="current-password" required>
+            </label>
+            <p id="login-error" class="error" hidden></p>
+            <button type="submit" class="btn primary">Войти</button>
+        </form>
+    </section>
+
+    <!-- Панель -->
+    <section id="panel-screen" class="wrap" hidden>
+        <header class="topbar">
+            <strong>CRM рассылки</strong>
+            <button id="logout" class="btn ghost">Выйти</button>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h2>1. Сегмент получателей</h2>
+                <div class="filters">
+                    <label>Регистрация с
+                        <input type="date" id="f-created-from">
+                    </label>
+                    <label>Регистрация по
+                        <input type="date" id="f-created-to">
+                    </label>
+                    <label>Есть email
+                        <select id="f-has-email">
+                            <option value="">не важно</option>
+                            <option value="yes">да</option>
+                            <option value="no">нет</option>
+                        </select>
+                    </label>
+                    <label>Есть телефон
+                        <select id="f-has-phone">
+                            <option value="">не важно</option>
+                            <option value="yes">да</option>
+                            <option value="no">нет</option>
+                        </select>
+                    </label>
+                </div>
+                <button id="preview-btn" class="btn">Показать количество</button>
+                <p id="preview-result" class="preview" hidden></p>
+            </div>
+
+            <div class="card">
+                <h2>2. Сообщение</h2>
+                <textarea id="message" rows="6" placeholder="Текст рассылки (поддерживается HTML)…"></textarea>
+                <button id="send-btn" class="btn primary">Отправить рассылку</button>
+                <p id="send-error" class="error" hidden></p>
+            </div>
+
+            <div class="card" id="status-card" hidden>
+                <h2>3. Статус рассылки</h2>
+                <p class="muted">ID: <span id="bcast-id"></span></p>
+                <div class="stats">
+                    <div class="stat"><span id="s-sent">0</span><small>отправлено</small></div>
+                    <div class="stat"><span id="s-pending">0</span><small>в очереди</small></div>
+                    <div class="stat"><span id="s-blocked">0</span><small>заблокировали</small></div>
+                    <div class="stat"><span id="s-failed">0</span><small>ошибки</small></div>
+                    <div class="stat"><span id="s-total">0</span><small>всего</small></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/panel.js"></script>
+</body>
+</html>

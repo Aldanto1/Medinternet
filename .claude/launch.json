@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5055", "--directory", "webapp"],
       "port": 5055
+    },
+    {
+      "name": "crm-web-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5056", "--directory", "crm-service/app/web"],
+      "port": 5056
     }
   ]
 }
