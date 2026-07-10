@@ -62,6 +62,17 @@
             <div class="card">
                 <h2>2. Сообщение</h2>
                 <textarea id="message" rows="6" placeholder="Текст рассылки (поддерживается HTML)…"></textarea>
+
+                <div class="attach-row">
+                    <label class="attach-btn">
+                        📎 Прикрепить файл
+                        <input type="file" id="attachment" hidden>
+                    </label>
+                    <span id="file-name" class="muted"></span>
+                    <button type="button" id="file-clear" class="link-btn" hidden>убрать</button>
+                </div>
+                <p class="hint">Фото или файл до 20 МБ. Текст станет подписью к файлу.</p>
+
                 <button id="send-btn" class="btn primary">Отправить рассылку</button>
                 <p id="send-error" class="error" hidden></p>
             </div>

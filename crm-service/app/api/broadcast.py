@@ -1,23 +1,41 @@
-"""Рассылка: постановка в очередь и статус."""
+"""Рассылка: постановка в очередь (с текстом и/или файлом) и статус."""
+import json
 import uuid
 
 from aiohttp import web
 
 from app import db
-from app.queue.tasks import enqueue_broadcast
+from app.queue.tasks import enqueue_broadcast, store_broadcast_payload
+
+_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 async def create_broadcast(request: web.Request) -> web.Response:
-    """POST /api/broadcast — фильтры + текст → задачи в очередь arq."""
-    try:
-        data = await request.json()
-    except Exception:
-        return web.json_response({"ok": False, "error": "Неверный запрос"}, status=400)
+    """POST /api/broadcast (multipart/form-data): filters + text + необязательный file."""
+    post = await request.post()
 
-    filters = data.get("filters") or {}
-    text = (data.get("text") or "").strip()
-    if not text:
-        return web.json_response({"ok": False, "error": "Пустой текст рассылки"}, status=400)
+    try:
+        filters = json.loads(post.get("filters") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        filters = {}
+    text = (post.get("text") or "").strip()
+
+    # Необязательный файл
+    kind, filename, data = "text", None, None
+    file_field = post.get("file")
+    if file_field is not None and hasattr(file_field, "file"):
+        data = file_field.file.read()
+        if data:
+            filename = file_field.filename or "file"
+            ctype = (file_field.content_type or "").lower()
+            kind = "photo" if ctype in _IMAGE_TYPES else "document"
+        else:
+            data = None
+
+    if not text and data is None:
+        return web.json_response(
+            {"ok": False, "error": "Добавьте текст или прикрепите файл"}, status=400
+        )
 
     telegram_ids = await db.get_telegram_ids(filters)
     if not telegram_ids:
@@ -26,8 +44,10 @@ async def create_broadcast(request: web.Request) -> web.Response:
         )
 
     broadcast_id = uuid.uuid4().hex
+    redis = request.app["redis"]
+    await store_broadcast_payload(redis, broadcast_id, text, kind, filename, data)
     await db.create_pending_logs(broadcast_id, telegram_ids)
-    await enqueue_broadcast(request.app["redis"], broadcast_id, telegram_ids, text)
+    await enqueue_broadcast(redis, broadcast_id, telegram_ids)
 
     return web.json_response(
         {"ok": True, "broadcast_id": broadcast_id, "queued": len(telegram_ids)}

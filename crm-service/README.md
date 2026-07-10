@@ -71,10 +71,12 @@ curl -X POST http://localhost:8090/api/segments/preview \
   -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
   -d '{"filters":{"created_from":"2026-01-01","has_email":true}}'
 
-# 3. Запустить рассылку
+# 3. Запустить рассылку (multipart: фильтры + текст + необязательный файл)
 curl -X POST http://localhost:8090/api/broadcast \
-  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"filters":{"has_email":true},"text":"Здравствуйте! ..."}'
+  -H "Authorization: Bearer <TOKEN>" \
+  -F 'filters={"has_email":true}' \
+  -F 'text=Здравствуйте! ...' \
+  -F 'file=@/path/to/photo.jpg'   # необязательно; фото → как фото, иначе документ
 
 # 4. Статус рассылки
 curl http://localhost:8090/api/broadcast/<BROADCAST_ID>/status \

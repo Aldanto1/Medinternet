@@ -14,6 +14,7 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramBadRequest,
 )
+from aiogram.types import BufferedInputFile
 
 from app.config import MAIN_BOT_TOKEN
 
@@ -62,3 +63,51 @@ async def send(telegram_id: int, text: str) -> str:
     except Exception as e:
         logger.warning("Ошибка отправки %s: %s", telegram_id, e)
         return "failed"
+
+
+async def _do_send_media(telegram_id, kind, caption, file_id, data, filename):
+    """Реально отправляет фото/документ. Возвращает file_id загруженного файла."""
+    media = file_id or BufferedInputFile(data, filename=filename or "file")
+    if kind == "photo":
+        msg = await _bot.send_photo(telegram_id, media, caption=caption)
+        return msg.photo[-1].file_id if msg.photo else None
+    msg = await _bot.send_document(telegram_id, media, caption=caption)
+    return msg.document.file_id if msg.document else None
+
+
+async def send_media(
+    telegram_id: int,
+    kind: str,
+    caption: str | None,
+    *,
+    file_id: str | None = None,
+    data: bytes | None = None,
+    filename: str | None = None,
+) -> tuple[str, str | None]:
+    """Отправляет фото ('photo') или документ ('document').
+
+    Если задан file_id — шлём по нему (без повторной загрузки в Telegram).
+    Иначе загружаем data и возвращаем полученный file_id для переиспользования.
+    Возвращает (status, file_id|None), status ∈ 'sent'/'blocked'/'failed'.
+    """
+    assert _bot is not None, "bot_client.init() ещё не вызван"
+    caption = caption or None
+    try:
+        new_id = await _do_send_media(telegram_id, kind, caption, file_id, data, filename)
+        return "sent", (None if file_id else new_id)
+    except TelegramForbiddenError:
+        return "blocked", None
+    except TelegramRetryAfter as e:
+        await asyncio.sleep(e.retry_after)
+        try:
+            new_id = await _do_send_media(telegram_id, kind, caption, file_id, data, filename)
+            return "sent", (None if file_id else new_id)
+        except Exception as e2:
+            logger.warning("Повторная отправка media %s не удалась: %s", telegram_id, e2)
+            return "failed", None
+    except TelegramBadRequest as e:
+        logger.warning("BadRequest media для %s: %s", telegram_id, e)
+        return "failed", None
+    except Exception as e:
+        logger.warning("Ошибка отправки media %s: %s", telegram_id, e)
+        return "failed", None

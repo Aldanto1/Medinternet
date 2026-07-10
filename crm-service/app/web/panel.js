@@ -103,30 +103,43 @@ async function doPreview() {
 
 // ---------- Рассылка ----------
 
+function showSendError(msg) {
+    els("send-error").textContent = msg;
+    els("send-error").hidden = false;
+}
+
 async function doSend() {
     els("send-error").hidden = true;
     const text = els("message").value.trim();
-    if (!text) {
-        els("send-error").textContent = "Введите текст сообщения";
-        els("send-error").hidden = false;
+    const file = els("attachment").files[0];
+    if (!text && !file) {
+        showSendError("Введите текст или прикрепите файл");
         return;
     }
     if (!confirm("Отправить рассылку выбранному сегменту?")) return;
 
+    // multipart/form-data: текст + фильтры + необязательный файл
+    const fd = new FormData();
+    fd.append("filters", JSON.stringify(collectFilters()));
+    fd.append("text", text);
+    if (file) fd.append("file", file);
+
     const btn = els("send-btn");
     btn.disabled = true;
     try {
-        const data = await apiRaw("/api/broadcast", {
-            method: "POST",
-            body: JSON.stringify({ filters: collectFilters(), text }),
-        });
+        const headers = {};
+        if (token) headers["Authorization"] = "Bearer " + token;
+        const res = await fetch("/api/broadcast", { method: "POST", headers, body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) { logout(); throw new Error("Сессия истекла, войдите заново"); }
+        if (!res.ok || data.ok === false) throw new Error(data.error || "Ошибка запроса");
+
         els("bcast-id").textContent = data.broadcast_id;
         els("status-card").hidden = false;
         localStorage.setItem("crm_last_broadcast", data.broadcast_id);
         startPolling(data.broadcast_id);
     } catch (err) {
-        els("send-error").textContent = err.message;
-        els("send-error").hidden = false;
+        showSendError(err.message);
     } finally {
         btn.disabled = false;
     }
@@ -157,5 +170,17 @@ els("login-form").addEventListener("submit", doLogin);
 els("logout").addEventListener("click", logout);
 els("preview-btn").addEventListener("click", doPreview);
 els("send-btn").addEventListener("click", doSend);
+
+// Прикрепление файла
+els("attachment").addEventListener("change", () => {
+    const f = els("attachment").files[0];
+    els("file-name").textContent = f ? f.name : "";
+    els("file-clear").hidden = !f;
+});
+els("file-clear").addEventListener("click", () => {
+    els("attachment").value = "";
+    els("file-name").textContent = "";
+    els("file-clear").hidden = true;
+});
 
 if (token) showPanel(); else showLogin();

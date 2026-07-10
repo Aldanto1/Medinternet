@@ -40,7 +40,8 @@ def _file(name: str):
 
 
 def build_app() -> web.Application:
-    app = web.Application(middlewares=[jwt_middleware])
+    # client_max_size — потолок размера загружаемого файла рассылки (20 МБ)
+    app = web.Application(middlewares=[jwt_middleware], client_max_size=20 * 1024 * 1024)
 
     # API
     app.router.add_post("/api/auth/login", auth.login)
