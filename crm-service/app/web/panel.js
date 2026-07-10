@@ -26,6 +26,16 @@ function showLogin() {
 function showPanel() {
     els("login-screen").hidden = true;
     els("panel-screen").hidden = false;
+    restoreBroadcast();
+}
+
+// Восстанавливает окно статуса последней рассылки после перезагрузки страницы
+function restoreBroadcast() {
+    const id = localStorage.getItem("crm_last_broadcast");
+    if (!id) return;
+    els("bcast-id").textContent = id;
+    els("status-card").hidden = false;
+    startPolling(id);
 }
 
 async function doLogin(e) {
@@ -51,7 +61,9 @@ async function doLogin(e) {
 function logout() {
     token = "";
     localStorage.removeItem("crm_token");
+    localStorage.removeItem("crm_last_broadcast");
     if (pollTimer) clearInterval(pollTimer);
+    els("status-card").hidden = true;
     showLogin();
 }
 
@@ -110,6 +122,7 @@ async function doSend() {
         });
         els("bcast-id").textContent = data.broadcast_id;
         els("status-card").hidden = false;
+        localStorage.setItem("crm_last_broadcast", data.broadcast_id);
         startPolling(data.broadcast_id);
     } catch (err) {
         els("send-error").textContent = err.message;
