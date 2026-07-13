@@ -67,6 +67,8 @@ function logout() {
     selectedEmails = [];
     renderChips();
     hideSuggest();
+    blocks = [{ type: "title", text: "" }];
+    renderBlocks();
     showLogin();
 }
 
@@ -152,6 +154,95 @@ async function searchEmails(q) {
     }
 }
 
+// ---------- Конструктор сообщения ----------
+
+let blocks = [{ type: "title", text: "" }];
+const BLOCK_LABELS = { title: "Заголовок", subtitle: "Подзаголовок", text: "Текст", link: "Ссылка" };
+
+function renderBlocks() {
+    const ed = els("editor");
+    ed.innerHTML = "";
+    blocks.forEach((b, i) => ed.appendChild(renderBlock(b, i)));
+}
+
+function iconBtn(sym, fn) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-btn";
+    btn.textContent = sym;
+    btn.addEventListener("click", fn);
+    return btn;
+}
+
+function renderBlock(b, i) {
+    const wrap = document.createElement("div");
+    wrap.className = "block b-" + b.type;
+
+    const head = document.createElement("div");
+    head.className = "block-head";
+    const lab = document.createElement("span");
+    lab.className = "block-label";
+    lab.textContent = BLOCK_LABELS[b.type] || "";
+    head.appendChild(lab);
+    if (b.type !== "title") {
+        const ctr = document.createElement("div");
+        ctr.className = "block-ctrls";
+        ctr.appendChild(iconBtn("↑", () => moveBlock(i, -1)));
+        ctr.appendChild(iconBtn("↓", () => moveBlock(i, 1)));
+        ctr.appendChild(iconBtn("✕", () => removeBlock(i)));
+        head.appendChild(ctr);
+    }
+    wrap.appendChild(head);
+
+    if (b.type === "link") {
+        const t = document.createElement("input");
+        t.type = "text"; t.className = "blk-input"; t.placeholder = "Текст ссылки";
+        t.value = b.text || "";
+        t.addEventListener("input", () => { blocks[i].text = t.value; });
+        const u = document.createElement("input");
+        u.type = "url"; u.className = "blk-input"; u.placeholder = "https://…";
+        u.value = b.url || "";
+        u.addEventListener("input", () => { blocks[i].url = u.value; });
+        wrap.appendChild(t);
+        wrap.appendChild(u);
+    } else if (b.type === "text") {
+        const ta = document.createElement("textarea");
+        ta.className = "blk-input"; ta.rows = 3; ta.placeholder = "Текст…";
+        ta.value = b.text || "";
+        ta.addEventListener("input", () => { blocks[i].text = ta.value; });
+        wrap.appendChild(ta);
+    } else {
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.className = "blk-input blk-" + b.type;
+        inp.placeholder = b.type === "title" ? "Заголовок" : "Подзаголовок";
+        inp.value = b.text || "";
+        inp.addEventListener("input", () => { blocks[i].text = inp.value; });
+        wrap.appendChild(inp);
+    }
+    return wrap;
+}
+
+function addBlock(type) {
+    blocks.push(type === "link" ? { type, text: "", url: "" } : { type, text: "" });
+    renderBlocks();
+}
+
+function removeBlock(i) {
+    if (blocks[i] && blocks[i].type === "title") return; // заголовок не удаляем
+    blocks.splice(i, 1);
+    renderBlocks();
+}
+
+function moveBlock(i, dir) {
+    const j = i + dir;
+    if (j < 1 || j >= blocks.length) return; // заголовок всегда первый
+    const tmp = blocks[i];
+    blocks[i] = blocks[j];
+    blocks[j] = tmp;
+    renderBlocks();
+}
+
 async function doPreview() {
     const btn = els("preview-btn");
     btn.disabled = true;
@@ -180,18 +271,18 @@ function showSendError(msg) {
 
 async function doSend() {
     els("send-error").hidden = true;
-    const text = els("message").value.trim();
     const file = els("attachment").files[0];
-    if (!text && !file) {
-        showSendError("Введите текст или прикрепите файл");
+    const hasContent = blocks.some((b) => (b.text && b.text.trim()) || (b.url && b.url.trim()));
+    if (!hasContent && !file) {
+        showSendError("Добавьте текст или прикрепите файл");
         return;
     }
     if (!confirm("Отправить рассылку выбранному сегменту?")) return;
 
-    // multipart/form-data: текст + фильтры + необязательный файл
+    // multipart/form-data: блоки конструктора + фильтры + необязательный файл
     const fd = new FormData();
     fd.append("filters", JSON.stringify(collectFilters()));
-    fd.append("text", text);
+    fd.append("blocks", JSON.stringify(blocks));
     if (file) fd.append("file", file);
 
     const btn = els("send-btn");
@@ -265,5 +356,18 @@ els("email-input").addEventListener("focus", () => {
     const q = els("email-input").value.trim();
     if (q) searchEmails(q);
 });
+
+// Конструктор: меню «Добавить блок»
+els("add-block-btn").addEventListener("click", () => {
+    els("block-menu").hidden = !els("block-menu").hidden;
+});
+document.querySelectorAll("#block-menu [data-add]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        addBlock(btn.dataset.add);
+        els("block-menu").hidden = true;
+    });
+});
+
+renderBlocks();
 
 if (token) showPanel(); else showLogin();

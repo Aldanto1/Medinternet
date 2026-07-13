@@ -70,7 +70,16 @@
 
             <div class="card">
                 <h2>2. Сообщение</h2>
-                <textarea id="message" rows="6" placeholder="Текст рассылки (поддерживается HTML)…"></textarea>
+
+                <div id="editor" class="editor"></div>
+                <div class="add-block">
+                    <button type="button" id="add-block-btn" class="btn small">+ Добавить блок</button>
+                    <div id="block-menu" class="block-menu" hidden>
+                        <button type="button" data-add="subtitle">Подзаголовок</button>
+                        <button type="button" data-add="text">Текст</button>
+                        <button type="button" data-add="link">Ссылка</button>
+                    </div>
+                </div>
 
                 <div class="attach-row">
                     <label class="attach-btn">

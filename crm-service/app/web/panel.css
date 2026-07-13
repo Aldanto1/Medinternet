@@ -87,6 +87,36 @@ textarea { resize: vertical; }
 
 .error { color: var(--danger); font-size: 14px; margin: 6px 0 0; }
 
+/* ---------- Конструктор сообщения ---------- */
+.editor { display: flex; flex-direction: column; gap: 14px; }
+.block-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.block-label { font-size: 12px; color: var(--muted); }
+.block-ctrls { display: flex; gap: 4px; }
+.icon-btn {
+    width: 26px; height: 26px; padding: 0; line-height: 1;
+    background: #f6f8fb; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); cursor: pointer; font-size: 13px;
+}
+.icon-btn:hover { background: #eef2f6; }
+.blk-input { width: 100%; }
+.blk-title { font-size: 20px; font-weight: 700; text-transform: uppercase; }
+.blk-subtitle { font-size: 16px; font-weight: 700; }
+textarea.blk-input { min-height: 64px; resize: vertical; }
+.block.b-link input { margin-bottom: 6px; }
+
+.add-block { position: relative; margin-top: 12px; }
+.btn.small { padding: 8px 12px; font-size: 14px; margin-top: 0; width: auto; }
+.block-menu {
+    position: absolute; top: 100%; left: 0; z-index: 20; margin-top: 4px;
+    min-width: 180px; background: #fff; border: 1px solid var(--border);
+    border-radius: 9px; box-shadow: 0 8px 24px rgba(22, 35, 58, .12); overflow: hidden;
+}
+.block-menu button {
+    display: block; width: 100%; text-align: left; padding: 10px 12px;
+    background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text);
+}
+.block-menu button:hover { background: var(--surface); }
+
 .attach-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .attach-btn {
     display: inline-block; padding: 8px 12px; font-size: 14px;

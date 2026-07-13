@@ -1,4 +1,5 @@
 """Рассылка: постановка в очередь (с текстом и/или файлом) и статус."""
+import html
 import json
 import uuid
 
@@ -10,6 +11,33 @@ from app.queue.tasks import enqueue_broadcast, store_broadcast_payload
 _IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
+def blocks_to_html(blocks) -> str:
+    """Собирает блоки конструктора в HTML-текст для Telegram.
+
+    title    → жирным КАПСОМ
+    subtitle → жирным
+    text     → обычный текст
+    link     → кликабельная ссылка
+    Между блоками — пустая строка (отступ). Контент экранируется.
+    """
+    parts = []
+    for b in blocks if isinstance(blocks, list) else []:
+        btype = b.get("type")
+        text = (b.get("text") or "").strip()
+        if btype == "title" and text:
+            parts.append(f"<b>{html.escape(text.upper())}</b>")
+        elif btype == "subtitle" and text:
+            parts.append(f"<b>{html.escape(text)}</b>")
+        elif btype == "text" and text:
+            parts.append(html.escape(text))
+        elif btype == "link":
+            url = (b.get("url") or "").strip()
+            if url:
+                label = html.escape(text or url)
+                parts.append(f'<a href="{html.escape(url, quote=True)}">{label}</a>')
+    return "\n\n".join(parts)
+
+
 async def create_broadcast(request: web.Request) -> web.Response:
     """POST /api/broadcast (multipart/form-data): filters + text + необязательный file."""
     post = await request.post()
@@ -18,7 +46,16 @@ async def create_broadcast(request: web.Request) -> web.Response:
         filters = json.loads(post.get("filters") or "{}")
     except (json.JSONDecodeError, TypeError):
         filters = {}
-    text = (post.get("text") or "").strip()
+
+    # Сообщение: либо блоки конструктора, либо (для совместимости) простой text
+    blocks_raw = post.get("blocks")
+    if blocks_raw:
+        try:
+            text = blocks_to_html(json.loads(blocks_raw))
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            text = ""
+    else:
+        text = (post.get("text") or "").strip()
 
     # Необязательный файл
     kind, filename, data = "text", None, None
