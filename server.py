@@ -12,7 +12,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import ai_client
 import db
-from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL
+from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL, WEBAPP_VERSION, webapp_url
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +109,12 @@ _CONGRATS = (
 
 
 def _miniapp_kb() -> InlineKeyboardMarkup | None:
-    if not WEBAPP_URL:
+    url = webapp_url()
+    if not url:
         return None
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
+            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=url))]
         ]
     )
 
@@ -249,17 +250,34 @@ async def handle_ai_reset(request: web.Request) -> web.Response:
 def _file(name: str):
     async def handler(_request: web.Request) -> web.Response:
         resp = web.FileResponse(WEBAPP_DIR / name)
-        # Всегда брать свежую версию mini app после деплоя (не кешировать в браузере)
-        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["Cache-Control"] = "no-store"
         return resp
 
     return handler
 
 
+# index.html отдаём с подстановкой версии в ссылки на style.css/app.js,
+# чтобы Telegram после деплоя гарантированно скачал свежие файлы.
+def _render_index() -> str:
+    html = (WEBAPP_DIR / "index.html").read_text(encoding="utf-8")
+    return (
+        html.replace("/style.css", f"/style.css?v={WEBAPP_VERSION}")
+            .replace("/app.js", f"/app.js?v={WEBAPP_VERSION}")
+    )
+
+
+async def handle_index(_request: web.Request) -> web.Response:
+    return web.Response(
+        text=_render_index(),
+        content_type="text/html",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 def build_app(bot=None) -> web.Application:
     app = web.Application()
     app["bot"] = bot  # нужен для уведомлений после регистрации
-    app.router.add_get("/", _file("index.html"))
+    app.router.add_get("/", handle_index)
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
     app.router.add_get("/logo.png", _file("logo.png"))

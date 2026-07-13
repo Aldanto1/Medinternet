@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
 import db
-from config import BOT_TOKEN, validate_config, PROXY_URL, WEBAPP_URL
+from config import BOT_TOKEN, validate_config, PROXY_URL, WEBAPP_URL, webapp_url
 from handlers import router
 from server import start_webserver
 
@@ -56,7 +56,7 @@ async def main():
         try:
             await bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
-                    text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL)
+                    text="Mini App", web_app=WebAppInfo(url=webapp_url())
                 )
             )
             logger.info(f"Mini app доступен по адресу: {WEBAPP_URL}")

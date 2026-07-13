@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -31,6 +32,18 @@ if WEBAPP_URL:
 # а слушать нужно на 0.0.0.0. Локально по умолчанию тоже подходит.
 WEBAPP_HOST = os.getenv("WEBAPP_HOST", "0.0.0.0")
 WEBAPP_PORT = int(os.getenv("PORT") or os.getenv("WEBAPP_PORT") or "8080")
+
+# Версия mini app — меняется при каждом запуске процесса (деплое).
+# Используется для сброса кэша: подставляется в URL кнопок и в ссылки на style.css/app.js.
+WEBAPP_VERSION = str(int(time.time()))
+
+
+def webapp_url():
+    """WEBAPP_URL с параметром версии — чтобы Telegram грузил свежий mini app после деплоя."""
+    if not WEBAPP_URL:
+        return None
+    sep = "&" if "?" in WEBAPP_URL else "?"
+    return f"{WEBAPP_URL}{sep}v={WEBAPP_VERSION}"
 
 # API сервера
 API_SERVER_URL = os.getenv("API_SERVER_URL")

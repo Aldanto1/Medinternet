@@ -28,7 +28,6 @@ const els = {
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
     chatReset: document.getElementById("chat-reset"),
-    themeToggle: document.getElementById("theme-toggle"),
 };
 
 let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
@@ -51,7 +50,8 @@ async function api(path, extra = {}) {
 function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem("mi_theme", theme); } catch (e) { /* игнор */ }
-    if (els.themeToggle) els.themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+    const icon = theme === "dark" ? "☀️" : "🌙";
+    document.querySelectorAll(".theme-toggle").forEach((b) => { b.textContent = icon; });
 }
 
 function initTheme() {
@@ -310,7 +310,7 @@ els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
-els.themeToggle.addEventListener("click", toggleTheme);
+document.querySelectorAll(".theme-toggle").forEach((b) => b.addEventListener("click", toggleTheme));
 
 document.querySelectorAll(".nav-btn").forEach((b) => {
     b.addEventListener("click", () => switchTab(b.dataset.tab));

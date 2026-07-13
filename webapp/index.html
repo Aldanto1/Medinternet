@@ -48,7 +48,7 @@
                     </div>
                     <div class="topbar-actions">
                         <button id="chat-reset" class="icon-round" type="button" title="Новый диалог" aria-label="Новый диалог">＋</button>
-                        <button id="theme-toggle" class="icon-round" type="button" title="Сменить тему" aria-label="Сменить тему">🌙</button>
+                        <button class="icon-round theme-toggle" type="button" title="Сменить тему" aria-label="Сменить тему">🌙</button>
                     </div>
                 </header>
                 <div id="messages" class="messages"></div>
@@ -60,7 +60,10 @@
 
             <!-- Личный кабинет -->
             <section id="tab-profile" class="tab" hidden>
-                <header class="topbar"><div class="topbar-title">Личный кабинет</div></header>
+                <header class="topbar">
+                    <div class="topbar-title">Личный кабинет</div>
+                    <button class="icon-round theme-toggle" type="button" title="Сменить тему" aria-label="Сменить тему">🌙</button>
+                </header>
                 <div class="scroll">
                     <div class="profile-head">
                         <div class="avatar" id="pf-initial">—</div>
@@ -91,7 +94,10 @@
 
             <!-- Информация -->
             <section id="tab-info" class="tab" hidden>
-                <header class="topbar"><div class="topbar-title">Информация</div></header>
+                <header class="topbar">
+                    <div class="topbar-title">Информация</div>
+                    <button class="icon-round theme-toggle" type="button" title="Сменить тему" aria-label="Сменить тему">🌙</button>
+                </header>
                 <div class="scroll">
                     <div class="menu-list">
                         <a class="menu-item" href="https://t.me/traderx_p2p" target="_blank" rel="noopener noreferrer">

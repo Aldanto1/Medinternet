@@ -8,18 +8,19 @@ from aiogram.types import (
 )
 
 import db
-from config import WEBAPP_URL
+from config import WEBAPP_URL, webapp_url
 
 router = Router()
 
 
 def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
     """Кнопка открытия mini app (если задан WEBAPP_URL)."""
-    if not WEBAPP_URL:
+    url = webapp_url()
+    if not url:
         return None
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
+            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=url))]
         ]
     )
 
