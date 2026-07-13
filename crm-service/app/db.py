@@ -78,6 +78,11 @@ def build_where(filters: dict) -> tuple[str, list]:
     if filters.get("has_phone") is False:
         clauses.append("(phone IS NULL OR phone = '')")
 
+    # Конкретные получатели по email (мультивыбор)
+    emails = filters.get("emails")
+    if emails:
+        clauses.append(f"email = ANY({ph([str(e) for e in emails])})")
+
     where = " AND ".join(clauses) if clauses else "TRUE"
     return where, params
 
@@ -95,6 +100,24 @@ async def count_users(filters: dict) -> int:
             f"SELECT count(*) FROM public.users WHERE ({where}) AND {_NOT_BLOCKED}",
             *params,
         )
+
+
+async def search_emails(query: str, limit: int = 10) -> list[str]:
+    """Подсказки email для автодополнения: адреса, содержащие query."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT DISTINCT email FROM public.users
+            WHERE email IS NOT NULL AND email <> ''
+              AND email ILIKE '%' || $1 || '%'
+            ORDER BY email
+            LIMIT $2
+            """,
+            query,
+            limit,
+        )
+    return [r["email"] for r in rows]
 
 
 async def get_telegram_ids(filters: dict) -> list[int]:

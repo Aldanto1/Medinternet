@@ -64,10 +64,16 @@ function logout() {
     localStorage.removeItem("crm_last_broadcast");
     if (pollTimer) clearInterval(pollTimer);
     els("status-card").hidden = true;
+    selectedEmails = [];
+    renderChips();
+    hideSuggest();
     showLogin();
 }
 
 // ---------- Фильтры ----------
+
+let selectedEmails = [];
+let emailTimer = null;
 
 function collectFilters() {
     const f = {};
@@ -79,7 +85,68 @@ function collectFilters() {
     if (to) f.created_to = to;
     if (email) f.has_email = email === "yes";
     if (phone) f.has_phone = phone === "yes";
+    if (selectedEmails.length) f.emails = selectedEmails.slice();
     return f;
+}
+
+// ---------- Мультивыбор получателей по email ----------
+
+function renderChips() {
+    const box = els("email-chips");
+    box.innerHTML = "";
+    selectedEmails.forEach((em) => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = em;
+        const x = document.createElement("button");
+        x.type = "button";
+        x.textContent = "✕";
+        x.addEventListener("click", () => {
+            selectedEmails = selectedEmails.filter((e) => e !== em);
+            renderChips();
+        });
+        chip.appendChild(x);
+        box.appendChild(chip);
+    });
+}
+
+function hideSuggest() {
+    els("email-suggest").hidden = true;
+    els("email-suggest").innerHTML = "";
+}
+
+function renderSuggest(emails) {
+    const box = els("email-suggest");
+    box.innerHTML = "";
+    const list = (emails || []).filter((e) => selectedEmails.indexOf(e) === -1);
+    if (!list.length) { hideSuggest(); return; }
+    list.forEach((em) => {
+        const d = document.createElement("div");
+        d.textContent = em;
+        // mousedown срабатывает раньше blur — успеваем добавить до скрытия списка
+        d.addEventListener("mousedown", (ev) => {
+            ev.preventDefault();
+            if (selectedEmails.indexOf(em) === -1) selectedEmails.push(em);
+            renderChips();
+            els("email-input").value = "";
+            hideSuggest();
+        });
+        box.appendChild(d);
+    });
+    box.hidden = false;
+}
+
+async function searchEmails(q) {
+    try {
+        const headers = {};
+        if (token) headers["Authorization"] = "Bearer " + token;
+        const res = await fetch("/api/segments/emails?q=" + encodeURIComponent(q), { headers });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json().catch(() => ({}));
+        renderSuggest(data.emails);
+    } catch (e) {
+        hideSuggest();
+    }
 }
 
 async function doPreview() {
@@ -182,5 +249,14 @@ els("file-clear").addEventListener("click", () => {
     els("file-name").textContent = "";
     els("file-clear").hidden = true;
 });
+
+// Автодополнение email
+els("email-input").addEventListener("input", () => {
+    const q = els("email-input").value.trim();
+    clearTimeout(emailTimer);
+    if (q.length < 1) { hideSuggest(); return; }
+    emailTimer = setTimeout(() => searchEmails(q), 250);
+});
+els("email-input").addEventListener("blur", () => setTimeout(hideSuggest, 150));
 
 if (token) showPanel(); else showLogin();

@@ -60,6 +60,28 @@ textarea { resize: vertical; }
 .filters {
     display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 6px;
 }
+.email-field { margin: 14px 0 4px; }
+.field-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.email-box { position: relative; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #e6f4f2; color: var(--brand-dark);
+    border-radius: 14px; padding: 4px 6px 4px 10px; font-size: 13px;
+}
+.chip button {
+    background: none; border: none; color: var(--brand-dark);
+    cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
+}
+.suggest {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    margin-top: 4px; background: #fff; border: 1px solid var(--border);
+    border-radius: 9px; max-height: 220px; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(22, 35, 58, .12);
+}
+.suggest div { padding: 10px 12px; cursor: pointer; font-size: 14px; }
+.suggest div:hover { background: var(--surface); }
+
 .preview { margin: 12px 0 0; font-size: 15px; }
 .preview strong { color: var(--brand); font-size: 20px; }
 

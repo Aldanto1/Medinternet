@@ -55,6 +55,15 @@
                         </select>
                     </label>
                 </div>
+                <div class="email-field">
+                    <span class="field-label">Получатели по email (можно несколько)</span>
+                    <div class="email-box">
+                        <div id="email-chips" class="chips"></div>
+                        <input type="text" id="email-input" placeholder="начните вводить email…" autocomplete="off">
+                        <div id="email-suggest" class="suggest" hidden></div>
+                    </div>
+                </div>
+
                 <button id="preview-btn" class="btn">Показать количество</button>
                 <p id="preview-result" class="preview" hidden></p>
             </div>

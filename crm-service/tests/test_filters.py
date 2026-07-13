@@ -30,3 +30,9 @@ def test_combined_filter_shape():
     where, params = build_where({"created_from": "2026-01-01", "has_email": True})
     assert where == "created_at >= $1 AND email IS NOT NULL AND email <> ''"
     assert len(params) == 1
+
+
+def test_emails_filter_uses_any_param():
+    where, params = build_where({"emails": ["a@x.ru", "b@y.ru"]})
+    assert "email = ANY($1)" in where
+    assert params == [["a@x.ru", "b@y.ru"]]
