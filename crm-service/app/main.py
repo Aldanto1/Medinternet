@@ -34,7 +34,10 @@ async def on_cleanup(app: web.Application) -> None:
 
 def _file(name: str):
     async def handler(_request: web.Request) -> web.Response:
-        return web.FileResponse(WEB_DIR / name)
+        resp = web.FileResponse(WEB_DIR / name)
+        # Всегда брать свежую версию панели после деплоя (не кешировать в браузере)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
 
     return handler
 

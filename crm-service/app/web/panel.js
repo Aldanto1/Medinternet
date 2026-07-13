@@ -128,8 +128,11 @@ function renderSuggest(emails) {
             ev.preventDefault();
             if (selectedEmails.indexOf(em) === -1) selectedEmails.push(em);
             renderChips();
-            els("email-input").value = "";
-            hideSuggest();
+            // Оставляем введённый текст, чтобы быстро выбрать несколько похожих адресов,
+            // и обновляем список (уже без только что выбранного).
+            const q = els("email-input").value.trim();
+            if (q) searchEmails(q); else hideSuggest();
+            els("email-input").focus();
         });
         box.appendChild(d);
     });
@@ -258,5 +261,9 @@ els("email-input").addEventListener("input", () => {
     emailTimer = setTimeout(() => searchEmails(q), 250);
 });
 els("email-input").addEventListener("blur", () => setTimeout(hideSuggest, 150));
+els("email-input").addEventListener("focus", () => {
+    const q = els("email-input").value.trim();
+    if (q) searchEmails(q);
+});
 
 if (token) showPanel(); else showLogin();
