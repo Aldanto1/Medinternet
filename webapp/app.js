@@ -1,9 +1,7 @@
 const tg = window.Telegram?.WebApp;
 const initData = tg?.initData || "";
 
-// Тексты интерфейса (русский)
 const T = {
-    register: "Регистрация",
     searcher: "Медицинский поисковик",
     submit: "Зарегистрироваться",
     submitting: "Отправка…",
@@ -16,10 +14,8 @@ const T = {
 
 const els = {
     loading: document.getElementById("loading"),
-    home: document.getElementById("screen-home"),
     register: document.getElementById("screen-register"),
-    chat: document.getElementById("screen-chat"),
-    homePrimary: document.getElementById("home-primary"),
+    app: document.getElementById("app"),
     regForm: document.getElementById("reg-form"),
     regError: document.getElementById("reg-error"),
     regSubmit: document.getElementById("reg-submit"),
@@ -32,9 +28,10 @@ const els = {
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
     chatReset: document.getElementById("chat-reset"),
+    themeToggle: document.getElementById("theme-toggle"),
 };
 
-let state = { registered: false, aiEnabled: false, screen: "loading" };
+let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
 
 // ---------- Общее ----------
 
@@ -45,50 +42,70 @@ async function api(path, extra = {}) {
         body: JSON.stringify({ initData, ...extra }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) {
-        throw new Error(data.error || T.errGeneric);
-    }
+    if (!res.ok || data.ok === false) throw new Error(data.error || T.errGeneric);
     return data;
 }
 
-// ---------- Навигация ----------
+// ---------- Тема ----------
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("mi_theme", theme); } catch (e) { /* игнор */ }
+    if (els.themeToggle) els.themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function initTheme() {
+    let theme;
+    try { theme = localStorage.getItem("mi_theme"); } catch (e) { theme = null; }
+    if (!theme) theme = tg?.colorScheme === "dark" ? "dark" : "light";
+    applyTheme(theme);
+}
+
+function toggleTheme() {
+    const cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "dark" ? "light" : "dark");
+}
+
+// ---------- Экраны и вкладки ----------
 
 function showScreen(name) {
     state.screen = name;
     els.loading.hidden = name !== "loading";
-    els.home.hidden = name !== "home";
     els.register.hidden = name !== "register";
-    els.chat.hidden = name !== "chat";
-
-    if (tg?.BackButton) {
-        if (name === "register" || name === "chat") tg.BackButton.show();
-        else tg.BackButton.hide();
-    }
+    els.app.hidden = name !== "app";
+    tg?.BackButton?.hide();
 }
 
-function goHome() { showScreen("home"); }
-
-function updateHomePrimary() {
-    els.homePrimary.textContent = state.registered ? T.searcher : T.register;
+function switchTab(name) {
+    state.tab = name;
+    document.getElementById("tab-search").hidden = name !== "search";
+    document.getElementById("tab-profile").hidden = name !== "profile";
+    document.getElementById("tab-info").hidden = name !== "info";
+    document.querySelectorAll(".nav-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.tab === name);
+    });
+    if (name === "search" && els.messages.childElementCount === 0) greetChat();
+    if (name === "profile") renderProfile();
 }
 
-function onHomePrimary() {
-    if (state.registered) openChat();
-    else showScreen("register");
+function openApp() {
+    showScreen("app");
+    switchTab("search");
 }
 
 // ---------- Инициализация ----------
 
 async function init() {
     if (tg) { tg.ready(); tg.expand(); }
+    initTheme();
     try {
         const me = await api("/api/me");
         state.registered = !!me.registered;
         state.aiEnabled = !!me.ai_enabled;
+        state.user = me.user || null;
     } catch (e) { /* дефолт: не зарегистрирован */ }
     prefillName();
-    updateHomePrimary();
-    showScreen("home");
+    if (state.registered) openApp(); else showScreen("register");
 }
 
 function prefillName() {
@@ -106,36 +123,30 @@ function regValid() {
     const email = els.email.value.trim();
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     return Boolean(
-        els.fullName.value.trim() &&
-        els.phone.value.trim() &&
-        email && emailOk &&
-        els.birthDate.value
+        els.fullName.value.trim() && els.phone.value.trim() &&
+        email && emailOk && els.birthDate.value
     );
 }
 
-function updateRegButton() {
-    els.regSubmit.disabled = !regValid();
-}
+function updateRegButton() { els.regSubmit.disabled = !regValid(); }
 
 async function submitRegistration() {
     els.regError.hidden = true;
     if (!regValid()) return;
-
     const payload = {
         full_name: els.fullName.value.trim(),
         phone: els.phone.value.trim(),
         email: els.email.value.trim(),
         birth_date: els.birthDate.value,
     };
-
     els.regSubmit.disabled = true;
     els.regSubmit.textContent = T.submitting;
     try {
         await api("/api/register", payload);
         tg?.HapticFeedback?.notificationOccurred("success");
         state.registered = true;
-        updateHomePrimary();
-        goHome();
+        state.user = { ...payload, created_at: new Date().toISOString(), tariff: "Обычный" };
+        openApp();
     } catch (e) {
         els.regError.textContent = e.message;
         els.regError.hidden = false;
@@ -145,13 +156,34 @@ async function submitRegistration() {
     }
 }
 
+// ---------- Личный кабинет ----------
+
+function renderProfile() {
+    const u = state.user || {};
+    const name = u.full_name || "—";
+    document.getElementById("pf-name").textContent = name;
+    document.getElementById("pf-initial").textContent = (name.trim()[0] || "—");
+    document.getElementById("pf-email").textContent = u.email || "—";
+    document.getElementById("pf-phone").textContent = u.phone || "—";
+    document.getElementById("pf-birth").textContent = fmtDate(u.birth_date);
+    document.getElementById("pf-since").textContent = fmtDate(u.created_at);
+    const tariff = u.tariff || "Обычный";
+    document.getElementById("pf-tariff").textContent = tariff;
+    document.getElementById("pf-tariff-name").textContent = tariff;
+}
+
+function fmtDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return "—";
+    return d.toLocaleDateString("ru-RU");
+}
+
 // ---------- Чат ----------
 
-function openChat() {
-    showScreen("chat");
-    if (els.messages.childElementCount === 0) {
-        addBubble("ai", state.aiEnabled === false ? T.aiUnavailable : T.greet);
-    }
+function greetChat() {
+    if (els.messages.childElementCount > 0) return;
+    addBubble("ai", state.aiEnabled === false ? T.aiUnavailable : T.greet);
 }
 
 function addBubble(kind, text) {
@@ -177,7 +209,7 @@ function renderAnswer(el, data) {
     el.style.whiteSpace = data.answer_html ? "normal" : "pre-wrap";
     const content = document.createElement("div");
     if (data.answer_html) {
-        content.innerHTML = data.answer_html; // доверенный API нейросети
+        content.innerHTML = data.answer_html;
     } else {
         content.style.whiteSpace = "pre-wrap";
         content.textContent = data.answer_md || T.emptyAnswer;
@@ -215,14 +247,12 @@ let sending = false;
 async function sendChat() {
     const text = els.chatInput.value.trim();
     if (!text || sending) return;
-
     sending = true;
     els.chatSend.disabled = true;
     els.chatInput.value = "";
     autoGrow();
     addBubble("user", text);
     const typing = addTyping();
-
     try {
         const data = await api("/api/ai/message", { message: text });
         typing.remove();
@@ -240,7 +270,7 @@ async function resetChat() {
     if (sending) return;
     try { await api("/api/ai/reset"); } catch (e) { /* не критично */ }
     els.messages.innerHTML = "";
-    addBubble("ai", T.greet);
+    greetChat();
     tg?.HapticFeedback?.impactOccurred("light");
 }
 
@@ -250,11 +280,23 @@ function autoGrow() {
     box.style.height = Math.min(box.scrollHeight, 120) + "px";
 }
 
-// ---------- События ----------
+// ---------- Информация ----------
 
-els.homePrimary.addEventListener("click", onHomePrimary);
-document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", goHome));
-tg?.BackButton?.onClick(goHome);
+function comingSoon(what) {
+    const msg = what + " — скоро будет доступно.";
+    if (tg?.showAlert) tg.showAlert(msg); else alert(msg);
+}
+
+function logout() {
+    const doClose = () => tg?.close?.();
+    if (tg?.showConfirm) {
+        tg.showConfirm("Выйти из аккаунта?", (ok) => { if (ok) doClose(); });
+    } else if (confirm("Выйти из аккаунта?")) {
+        doClose();
+    }
+}
+
+// ---------- События ----------
 
 els.regForm.addEventListener("submit", (e) => { e.preventDefault(); submitRegistration(); });
 for (const f of [els.fullName, els.phone, els.email, els.birthDate]) {
@@ -268,5 +310,14 @@ els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
+els.themeToggle.addEventListener("click", toggleTheme);
+
+document.querySelectorAll(".nav-btn").forEach((b) => {
+    b.addEventListener("click", () => switchTab(b.dataset.tab));
+});
+
+document.getElementById("subscription-btn").addEventListener("click", () => comingSoon("Подписка и оплата"));
+document.getElementById("upgrade-btn").addEventListener("click", () => comingSoon("Тариф «Плюс»"));
+document.getElementById("logout-btn").addEventListener("click", logout);
 
 init();

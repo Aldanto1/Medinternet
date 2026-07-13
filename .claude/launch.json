@@ -12,6 +12,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5056", "--directory", "crm-service/app/web"],
       "port": 5056
+    },
+    {
+      "name": "bot-local",
+      "runtimeExecutable": "venv/Scripts/python.exe",
+      "runtimeArgs": ["bot.py"],
+      "port": 8080
     }
   ]
 }

@@ -8,69 +8,125 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <!-- Загрузка -->
     <div id="loading" class="loading"><div class="spinner"></div></div>
 
-    <!-- Главный экран -->
-    <section id="screen-home" class="screen" hidden>
-        <div class="home">
-            <img class="logo-img" src="/logo.png" alt="Мединтернет">
-            <p class="welcome">Добро пожаловать в Мединтернет</p>
-
-            <div class="home-actions">
-                <button id="home-primary" class="btn btn-primary" type="button"></button>
-            </div>
-        </div>
-    </section>
-
-    <!-- Экран регистрации -->
+    <!-- Регистрация (для незарегистрированных) -->
     <section id="screen-register" class="screen" hidden>
-        <header class="topbar">
-            <button class="back-btn" type="button" data-back aria-label="Назад">‹</button>
-            <span class="topbar-title" data-i18n="regTitle">Регистрация</span>
-        </header>
         <div class="scroll">
             <div class="card">
-                <p class="subtitle" data-i18n="regSubtitle">Заполните данные, чтобы продолжить работу с Мединтернет.</p>
+                <img class="logo-img" src="/logo.png" alt="Мединтернет">
+                <p class="subtitle">Заполните данные, чтобы продолжить работу с Мединтернет.</p>
                 <form id="reg-form" novalidate>
-                    <label>
-                        <span data-i18n="fioLabel">ФИО</span> <span class="req">*</span>
-                        <input type="text" id="full_name" autocomplete="name" data-i18n-ph="fioPh" placeholder="Иванов Иван Иванович" required>
+                    <label><span>ФИО</span> <span class="req">*</span>
+                        <input type="text" id="full_name" autocomplete="name" placeholder="Иванов Иван Иванович" required>
                     </label>
-                    <label>
-                        <span data-i18n="phoneLabel">Телефон</span> <span class="req">*</span>
-                        <input type="tel" id="phone" autocomplete="tel" inputmode="tel" data-i18n-ph="phonePh" placeholder="+7 900 000-00-00">
+                    <label><span>Телефон</span> <span class="req">*</span>
+                        <input type="tel" id="phone" autocomplete="tel" inputmode="tel" placeholder="+7 900 000-00-00">
                     </label>
-                    <label>
-                        <span data-i18n="emailLabel">Email</span> <span class="req">*</span>
-                        <input type="email" id="email" autocomplete="email" inputmode="email" data-i18n-ph="emailPh" placeholder="you@example.com">
+                    <label><span>Email</span> <span class="req">*</span>
+                        <input type="email" id="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
                     </label>
-                    <label>
-                        <span data-i18n="birthLabel">Дата рождения</span> <span class="req">*</span>
+                    <label><span>Дата рождения</span> <span class="req">*</span>
                         <input type="date" id="birth_date">
                     </label>
                     <p id="reg-error" class="error" hidden></p>
-                    <button type="submit" id="reg-submit" class="btn btn-primary" data-i18n="submit" disabled>Зарегистрироваться</button>
+                    <button type="submit" id="reg-submit" class="btn btn-primary" disabled>Зарегистрироваться</button>
                 </form>
             </div>
         </div>
     </section>
 
-    <!-- Экран чата -->
-    <section id="screen-chat" class="screen" hidden>
-        <header class="topbar">
-            <button class="back-btn" type="button" data-back aria-label="Назад">‹</button>
-            <div class="topbar-heading">
-                <div class="topbar-title" data-i18n="chatTitle">Медицинский поисковик</div>
-                <div class="topbar-subtitle">RXCode AI</div>
-            </div>
-            <button id="chat-reset" class="reset-btn" type="button" data-i18n="newDialog">Новый диалог</button>
-        </header>
-        <div id="messages" class="messages"></div>
-        <form id="chat-form" class="chat-form">
-            <textarea id="chat-input" rows="1" autocomplete="off" data-i18n-ph="inputPh" placeholder="Задайте вопрос…"></textarea>
-            <button type="submit" id="chat-send" class="send-btn" aria-label="Отправить">➤</button>
-        </form>
+    <!-- Основное приложение (для зарегистрированных) -->
+    <section id="app" class="screen" hidden>
+        <div class="tabs">
+            <!-- Медицинский поисковик -->
+            <section id="tab-search" class="tab">
+                <header class="topbar">
+                    <div class="topbar-heading">
+                        <div class="topbar-title">Медицинский поисковик</div>
+                        <div class="topbar-subtitle">RXCode AI</div>
+                    </div>
+                    <div class="topbar-actions">
+                        <button id="chat-reset" class="icon-round" type="button" title="Новый диалог" aria-label="Новый диалог">＋</button>
+                        <button id="theme-toggle" class="icon-round" type="button" title="Сменить тему" aria-label="Сменить тему">🌙</button>
+                    </div>
+                </header>
+                <div id="messages" class="messages"></div>
+                <form id="chat-form" class="chat-form">
+                    <textarea id="chat-input" rows="1" autocomplete="off" placeholder="Задайте вопрос…"></textarea>
+                    <button type="submit" id="chat-send" class="send-btn" aria-label="Отправить">➤</button>
+                </form>
+            </section>
+
+            <!-- Личный кабинет -->
+            <section id="tab-profile" class="tab" hidden>
+                <header class="topbar"><div class="topbar-title">Личный кабинет</div></header>
+                <div class="scroll">
+                    <div class="profile-head">
+                        <div class="avatar" id="pf-initial">—</div>
+                        <div>
+                            <div class="pf-name" id="pf-name">—</div>
+                            <span class="badge" id="pf-tariff">Обычный</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Данные</div>
+                    <div class="info-list">
+                        <div class="info-row"><span>Email</span><b id="pf-email">—</b></div>
+                        <div class="info-row"><span>Телефон</span><b id="pf-phone">—</b></div>
+                        <div class="info-row"><span>Дата рождения</span><b id="pf-birth">—</b></div>
+                        <div class="info-row"><span>С нами с</span><b id="pf-since">—</b></div>
+                    </div>
+
+                    <div class="section-title">Тариф</div>
+                    <div class="tariff-card">
+                        <div>
+                            <div class="tariff-name" id="pf-tariff-name">Обычный</div>
+                            <div class="tariff-desc">Базовый доступ к медицинскому поисковику</div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="upgrade-btn" type="button">Перейти на Плюс</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Информация -->
+            <section id="tab-info" class="tab" hidden>
+                <header class="topbar"><div class="topbar-title">Информация</div></header>
+                <div class="scroll">
+                    <div class="menu-list">
+                        <a class="menu-item" href="https://t.me/traderx_p2p" target="_blank" rel="noopener noreferrer">
+                            <span>Поддержка</span><span class="menu-val">@traderx_p2p ›</span>
+                        </a>
+                        <button class="menu-item" id="subscription-btn" type="button">
+                            <span>Подписка и оплата</span><span class="menu-val">›</span>
+                        </button>
+                        <a class="menu-item" id="privacy-link" href="https://medinternet.ru" target="_blank" rel="noopener noreferrer">
+                            <span>Политика конфиденциальности</span><span class="menu-val">›</span>
+                        </a>
+                        <a class="menu-item" id="terms-link" href="https://medinternet.ru" target="_blank" rel="noopener noreferrer">
+                            <span>Условия использования</span><span class="menu-val">›</span>
+                        </a>
+                    </div>
+                    <button class="menu-item danger" id="logout-btn" type="button">Выйти из аккаунта</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Нижняя навигация -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" type="button" data-tab="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+                <span>Поиск</span>
+            </button>
+            <button class="nav-btn" type="button" data-tab="profile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                <span>Кабинет</span>
+            </button>
+            <button class="nav-btn" type="button" data-tab="info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+                <span>Инфо</span>
+            </button>
+        </nav>
     </section>
 
     <script src="/app.js"></script>

@@ -164,14 +164,31 @@ async def _authenticated_user(request: web.Request):
 
 
 async def handle_me(request: web.Request) -> web.Response:
-    """Статус пользователя: зарегистрирован ли и доступен ли ИИ-чат."""
+    """Статус пользователя: регистрация, доступность ИИ и данные профиля."""
     tg_user, _body, err = await _authenticated_user(request)
     if err is not None:
         return err
-    registered = await db.user_exists(tg_user["id"])
-    return web.json_response(
-        {"ok": True, "registered": registered, "ai_enabled": ai_client.is_configured()}
-    )
+
+    row = await db.get_user(tg_user["id"])
+    profile = None
+    if row is not None:
+        birth = row["birth_date"]
+        created = row["created_at"]
+        profile = {
+            "full_name": row["full_name"],
+            "email": row["email"],
+            "phone": row["phone"],
+            "birth_date": birth.isoformat() if birth else None,
+            "created_at": created.isoformat() if created else None,
+            "tariff": "Обычный",
+        }
+
+    return web.json_response({
+        "ok": True,
+        "registered": row is not None,
+        "ai_enabled": ai_client.is_configured(),
+        "user": profile,
+    })
 
 
 # Сколько последних сообщений диалога держим в контексте (ограничивает расход токенов)
@@ -231,7 +248,10 @@ async def handle_ai_reset(request: web.Request) -> web.Response:
 
 def _file(name: str):
     async def handler(_request: web.Request) -> web.Response:
-        return web.FileResponse(WEBAPP_DIR / name)
+        resp = web.FileResponse(WEBAPP_DIR / name)
+        # Всегда брать свежую версию mini app после деплоя (не кешировать в браузере)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
 
     return handler
 
