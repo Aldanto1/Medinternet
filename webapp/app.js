@@ -116,7 +116,7 @@ function updateRegButton() { els.regSubmit.disabled = !regValid(); }
 async function submitRegistration() {
     els.regError.hidden = true;
     if (!regValid()) {
-        els.regError.textContent = "MedID — это число от 1 до 6 цифр.";
+        els.regError.textContent = "MedinternetID — это число от 1 до 6 цифр.";
         els.regError.hidden = false;
         return;
     }
@@ -307,5 +307,11 @@ document.querySelectorAll(".nav-btn").forEach((b) => {
 document.getElementById("subscription-btn").addEventListener("click", () => comingSoon("Подписка и оплата"));
 document.getElementById("upgrade-btn").addEventListener("click", () => comingSoon("Тариф «Плюс»"));
 document.getElementById("logout-btn").addEventListener("click", logout);
+
+// Модалка «Как пользоваться»
+const howtoModal = document.getElementById("howto-modal");
+document.getElementById("howto-btn").addEventListener("click", () => { howtoModal.hidden = false; });
+document.getElementById("howto-close").addEventListener("click", () => { howtoModal.hidden = true; });
+howtoModal.addEventListener("click", (e) => { if (e.target === howtoModal) howtoModal.hidden = true; });
 
 init();

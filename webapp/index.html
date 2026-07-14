@@ -15,9 +15,9 @@
         <div class="scroll">
             <div class="card">
                 <img class="logo-img" src="/logo.png" alt="Мединтернет">
-                <p class="subtitle">Для регистрации введите ваш <b>MedID</b> — число от 1 до 6 цифр.</p>
+                <p class="subtitle">Для регистрации введите ваш <b>MedinternetID</b> — число от 1 до 6 цифр.</p>
                 <form id="reg-form" novalidate>
-                    <label><span>MedID</span> <span class="req">*</span>
+                    <label><span>MedinternetID</span> <span class="req">*</span>
                         <input type="text" id="med_id" inputmode="numeric" autocomplete="off"
                                maxlength="6" placeholder="например, 12345" required>
                     </label>
@@ -67,7 +67,7 @@
 
                     <div class="section-title">Данные</div>
                     <div class="info-list">
-                        <div class="info-row"><span>MedID</span><b id="pf-medid">—</b></div>
+                        <div class="info-row"><span>MedinternetID</span><b id="pf-medid">—</b></div>
                         <div class="info-row"><span>С нами с</span><b id="pf-since">—</b></div>
                     </div>
 
@@ -93,14 +93,14 @@
                         <a class="menu-item" href="https://t.me/traderx_p2p" target="_blank" rel="noopener noreferrer">
                             <span>Поддержка</span><span class="menu-val">@traderx_p2p ›</span>
                         </a>
+                        <button class="menu-item" id="howto-btn" type="button">
+                            <span>Как пользоваться</span><span class="menu-val">›</span>
+                        </button>
                         <button class="menu-item" id="subscription-btn" type="button">
                             <span>Подписка и оплата</span><span class="menu-val">›</span>
                         </button>
                         <a class="menu-item" id="privacy-link" href="https://medinternet.ru" target="_blank" rel="noopener noreferrer">
                             <span>Политика конфиденциальности</span><span class="menu-val">›</span>
-                        </a>
-                        <a class="menu-item" id="terms-link" href="https://medinternet.ru" target="_blank" rel="noopener noreferrer">
-                            <span>Условия использования</span><span class="menu-val">›</span>
                         </a>
                     </div>
                     <button class="menu-item danger" id="logout-btn" type="button">Выйти из аккаунта</button>
@@ -124,6 +124,55 @@
             </button>
         </nav>
     </section>
+
+    <!-- Модалка «Как пользоваться» -->
+    <div id="howto-modal" class="modal" hidden>
+        <div class="modal-box">
+            <div class="modal-head">
+                <strong>Как задавать вопросы поисковику</strong>
+                <button type="button" id="howto-close" class="modal-x" aria-label="Закрыть">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-lead">Чтобы получить максимально точные ответы, следуйте этим рекомендациям:</p>
+
+                <div class="tip">
+                    <div class="tip-title">1. Будьте конкретны</div>
+                    <p>Чем детальнее вопрос, тем точнее ответ: указывайте возраст, сопутствующие болезни, принимаемые лекарства.</p>
+                    <p class="ex bad">✗ «Что делать при высоком давлении?»</p>
+                    <p class="ex good">✓ «Какие препараты первой линии при гипертоническом кризе у пациента 60 лет с диабетом 2 типа?»</p>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">2. Используйте терминологию</div>
+                    <p>Поисковик понимает аббревиатуры и стандарты (ESC, NIH, ICD-11).</p>
+                    <p class="ex bad">✗ «Как лечить воспаление лёгких?»</p>
+                    <p class="ex good">✓ «Схемы антибактериальной терапии внебольничной пневмонии (CAP) у взрослых по IDSA/ATS?»</p>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">3. Просите источники</div>
+                    <p>Уточняйте: «Какие рекомендации WHO?», «Есть ли мета-анализы?».</p>
+                    <p class="ex good">✓ «Какие новые препараты (CGRP-антагонисты) одобрены для профилактики мигрени в 2024? Приведите ссылки.»</p>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">4. Разбивайте сложные запросы</div>
+                    <p>Пошаговые вопросы дают более структурированные ответы.</p>
+                    <p class="ex good">✓ «Какие ЭКГ-критерии фибрилляции предсердий?» → «Сравните апиксабан и ривароксабан у таких пациентов.»</p>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">5. Уточняйте контекст</div>
+                    <p>Добавляйте: «У пациента ХБП 3 стадии, как это влияет?», «Какие исключения при беременности?».</p>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">6. Проверяйте противоречия</div>
+                    <p>Если ответ вызывает сомнения: «Это противоречит данным ABCD-2023. Объясните расхождение?»</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/app.js"></script>
 </body>

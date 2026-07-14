@@ -78,14 +78,6 @@ let selectedMedIds = [];   // выбранные MedID (числа)
 
 function collectFilters() {
     const f = {};
-    const from = els("f-created-from").value;
-    const to = els("f-created-to").value;
-    const email = els("f-has-email").value;
-    const phone = els("f-has-phone").value;
-    if (from) f.created_from = from;
-    if (to) f.created_to = to;
-    if (email) f.has_email = email === "yes";
-    if (phone) f.has_phone = phone === "yes";
     if (selectedMedIds.length) f.med_ids = selectedMedIds.slice();
     return f;
 }

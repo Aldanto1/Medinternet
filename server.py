@@ -71,11 +71,11 @@ async def handle_register(request: web.Request) -> web.Response:
     med_raw = str(body.get("med_id") or "").strip()
     if not med_raw.isdigit() or not (1 <= len(med_raw) <= 6):
         return web.json_response(
-            {"ok": False, "error": "MedID — это число от 1 до 6 цифр"}, status=400
+            {"ok": False, "error": "MedinternetID — это число от 1 до 6 цифр"}, status=400
         )
     med_id = int(med_raw)
     if med_id < 1:
-        return web.json_response({"ok": False, "error": "Неверный MedID"}, status=400)
+        return web.json_response({"ok": False, "error": "Неверный MedinternetID"}, status=400)
 
     was_registered = await db.user_exists(tg_id)
     await db.upsert_user(

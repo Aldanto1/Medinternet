@@ -32,35 +32,13 @@
 
         <div class="grid">
             <div class="card">
-                <h2>1. Сегмент получателей</h2>
-                <div class="filters">
-                    <label>Регистрация с
-                        <input type="date" id="f-created-from">
-                    </label>
-                    <label>Регистрация по
-                        <input type="date" id="f-created-to">
-                    </label>
-                    <label>Есть email
-                        <select id="f-has-email">
-                            <option value="">не важно</option>
-                            <option value="yes">да</option>
-                            <option value="no">нет</option>
-                        </select>
-                    </label>
-                    <label>Есть телефон
-                        <select id="f-has-phone">
-                            <option value="">не важно</option>
-                            <option value="yes">да</option>
-                            <option value="no">нет</option>
-                        </select>
-                    </label>
-                </div>
+                <h2>1. Получатели</h2>
                 <div class="email-field">
-                    <span class="field-label">Получатели по MedID (можно несколько)</span>
+                    <span class="field-label">Поиск по MedinternetID (можно несколько)</span>
                     <div id="medid-chips" class="chips"></div>
                     <div class="medid-row">
                         <div class="email-box" style="flex:1 1 auto;">
-                            <input type="text" id="medid-input" inputmode="numeric" placeholder="введите MedID…" autocomplete="off">
+                            <input type="text" id="medid-input" inputmode="numeric" placeholder="введите MedinternetID…" autocomplete="off">
                             <div id="medid-suggest" class="suggest" hidden></div>
                         </div>
                         <button type="button" id="medid-list-btn" class="btn list-btn" title="Список всех ID">Список</button>
@@ -116,7 +94,7 @@
     <div id="medid-modal" class="modal" hidden>
         <div class="modal-box">
             <div class="modal-head">
-                <strong>Все зарегистрированные MedID</strong>
+                <strong>Все зарегистрированные MedinternetID</strong>
                 <button type="button" id="medid-modal-close" class="link-btn">✕</button>
             </div>
             <div class="modal-tools">
