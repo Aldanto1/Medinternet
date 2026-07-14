@@ -192,12 +192,8 @@ async def handle_me(request: web.Request) -> web.Response:
     })
 
 
-# Сколько последних сообщений диалога держим в контексте (ограничивает расход токенов)
-MAX_HISTORY = 20
-
-
 async def handle_ai_message(request: web.Request) -> web.Response:
-    """Отправляет вопрос пользователя в нейросеть с учётом истории диалога."""
+    """Отправляет вопрос пользователя в RX Code AI и возвращает ответ."""
     tg_user, body, err = await _authenticated_user(request)
     if err is not None:
         return err
@@ -212,38 +208,38 @@ async def handle_ai_message(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
 
     tg_id = tg_user["id"]
-    history = await db.get_conversation(tg_id)
-
-    messages = (
-        [{"role": "system", "content": ai_client.SYSTEM_PROMPT}]
-        + history
-        + [{"role": "user", "content": message}]
-    )
-
     try:
-        reply = await ai_client.chat_completion(messages)
+        chat_id = await db.get_ai_chat_id(tg_id)
+        if not chat_id:
+            chat_id = await ai_client.create_session(tg_id)
+            await db.set_ai_chat_id(tg_id, chat_id)
+        try:
+            answer = await ai_client.send_message(chat_id, message)
+        except ai_client.SessionNotFound:
+            # Сессия истекла — создаём новую и повторяем один раз
+            chat_id = await ai_client.create_session(tg_id)
+            await db.set_ai_chat_id(tg_id, chat_id)
+            answer = await ai_client.send_message(chat_id, message)
     except ai_client.AIError as e:
-        logger.warning("Ошибка нейросети: %s", e)
+        logger.warning("Ошибка RX Code AI: %s", e)
         return web.json_response(
             {"ok": False, "error": "Нейросеть недоступна, попробуйте позже"}, status=502
         )
 
-    # Дописываем обмен в историю и обрезаем до последних MAX_HISTORY сообщений
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": reply})
-    await db.save_conversation(tg_id, history[-MAX_HISTORY:])
-
-    return web.json_response(
-        {"ok": True, "answer_html": None, "answer_md": reply, "sources": []}
-    )
+    return web.json_response({
+        "ok": True,
+        "answer_html": answer["html"],
+        "answer_md": answer["markdown"],
+        "sources": answer["sources"],
+    })
 
 
 async def handle_ai_reset(request: web.Request) -> web.Response:
-    """Сбрасывает историю диалога, чтобы начать новый разговор."""
+    """Сбрасывает текущую сессию, чтобы начать новый диалог."""
     tg_user, _body, err = await _authenticated_user(request)
     if err is not None:
         return err
-    await db.clear_conversation(tg_user["id"])
+    await db.clear_ai_session(tg_user["id"])
     return web.json_response({"ok": True})
 
 

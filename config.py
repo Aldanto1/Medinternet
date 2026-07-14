@@ -49,16 +49,14 @@ def webapp_url():
 API_SERVER_URL = os.getenv("API_SERVER_URL")
 API_SERVER_KEY = os.getenv("API_SERVER_KEY")
 
-# Нейросеть в mini app.
-# Сейчас подключён OpenRouter (временно, вместо RXCode AI):
-#   NEURO_API_URL = https://openrouter.ai/api/v1
-# Позже заменим на базовый адрес RXCode AI API.
+# Нейросеть RX Code AI (медицинский поисковик в mini app).
+# NEURO_API_URL — базовый адрес API БЕЗ /api в конце (код сам добавляет /api/chats).
 NEURO_API_URL = os.getenv("NEURO_API_URL")
 if NEURO_API_URL:
     NEURO_API_URL = NEURO_API_URL.strip().rstrip("/")
 NEURO_API_KEY = os.getenv("NEURO_API_KEY")
-# Модель OpenRouter (можно поменять без правок кода)
-NEURO_MODEL = os.getenv("NEURO_MODEL", "openai/gpt-4o-mini")
+# Название канала, под которым бот создаёт сессии в RX Code AI
+NEURO_CHANNEL = os.getenv("NEURO_CHANNEL", "telegram")
 
 
 def get_windows_socks_proxy():

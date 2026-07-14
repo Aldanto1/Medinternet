@@ -1,5 +1,4 @@
 """Работа с базой данных Neon (PostgreSQL) через asyncpg."""
-import json
 import re
 
 import asyncpg
@@ -39,14 +38,14 @@ async def init() -> None:
             )
             """
         )
-        # История диалога с нейросетью (OpenRouter не хранит контекст на своей стороне).
-        # messages — JSON-массив [{"role","content"}, ...] в виде текста.
+        # Сессия чата с RX Code AI (одна активная сессия на пользователя).
+        # RX Code AI хранит контекст на своей стороне — держим только SessionId.
         await conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS ai_conversations (
+            CREATE TABLE IF NOT EXISTS ai_sessions (
                 telegram_id BIGINT PRIMARY KEY,
-                messages    TEXT NOT NULL DEFAULT '[]',
-                updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+                chat_id     TEXT NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
             )
             """
         )
@@ -121,45 +120,38 @@ async def user_exists(telegram_id: int) -> bool:
         return row is not None
 
 
-async def get_conversation(telegram_id: int) -> list:
-    """Возвращает историю диалога пользователя (список messages) или []."""
+async def get_ai_chat_id(telegram_id: int) -> str | None:
+    """Возвращает id активной сессии чата с нейросетью или None."""
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
-        raw = await conn.fetchval(
-            "SELECT messages FROM ai_conversations WHERE telegram_id = $1", telegram_id
+        return await conn.fetchval(
+            "SELECT chat_id FROM ai_sessions WHERE telegram_id = $1", telegram_id
         )
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        return []
 
 
-async def save_conversation(telegram_id: int, messages: list) -> None:
-    """Сохраняет историю диалога пользователя."""
+async def set_ai_chat_id(telegram_id: int, chat_id: str) -> None:
+    """Сохраняет/обновляет id сессии чата с нейросетью для пользователя."""
     assert _pool is not None, "db.init() ещё не вызван"
-    payload = json.dumps(messages, ensure_ascii=False)
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO ai_conversations (telegram_id, messages)
+            INSERT INTO ai_sessions (telegram_id, chat_id)
             VALUES ($1, $2)
             ON CONFLICT (telegram_id) DO UPDATE SET
-                messages   = EXCLUDED.messages,
-                updated_at = now()
+                chat_id    = EXCLUDED.chat_id,
+                created_at = now()
             """,
             telegram_id,
-            payload,
+            chat_id,
         )
 
 
-async def clear_conversation(telegram_id: int) -> None:
-    """Очищает историю диалога, чтобы начать новый разговор."""
+async def clear_ai_session(telegram_id: int) -> None:
+    """Удаляет активную сессию чата, чтобы начать новый диалог."""
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
         await conn.execute(
-            "DELETE FROM ai_conversations WHERE telegram_id = $1", telegram_id
+            "DELETE FROM ai_sessions WHERE telegram_id = $1", telegram_id
         )
 
 
