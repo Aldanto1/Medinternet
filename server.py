@@ -67,33 +67,23 @@ async def handle_register(request: web.Request) -> web.Response:
             {"ok": False, "error": "Нет данных пользователя Telegram"}, status=400
         )
 
-    full_name = (body.get("full_name") or "").strip()
-    phone = (body.get("phone") or "").strip() or None
-    email = (body.get("email") or "").strip() or None
-    birth_raw = (body.get("birth_date") or "").strip()
-
-    if not full_name:
-        return web.json_response({"ok": False, "error": "Укажите ФИО"}, status=400)
-
-    birth_date = None
-    if birth_raw:
-        try:
-            birth_date = date.fromisoformat(birth_raw)
-        except ValueError:
-            return web.json_response(
-                {"ok": False, "error": "Неверная дата рождения"}, status=400
-            )
+    # Регистрация по MedID — число от 1 до 6 цифр (1..999999)
+    med_raw = str(body.get("med_id") or "").strip()
+    if not med_raw.isdigit() or not (1 <= len(med_raw) <= 6):
+        return web.json_response(
+            {"ok": False, "error": "MedID — это число от 1 до 6 цифр"}, status=400
+        )
+    med_id = int(med_raw)
+    if med_id < 1:
+        return web.json_response({"ok": False, "error": "Неверный MedID"}, status=400)
 
     was_registered = await db.user_exists(tg_id)
     await db.upsert_user(
         telegram_id=tg_id,
+        med_id=med_id,
         username=tg_user.get("username"),
-        full_name=full_name,
-        phone=phone,
-        email=email,
-        birth_date=birth_date,
     )
-    logger.info("Зарегистрирован пользователь %s (%s)", tg_id, full_name)
+    logger.info("Зарегистрирован пользователь %s (MedID %s)", tg_id, med_id)
 
     # Только при ПЕРВОЙ регистрации: удаляем стартовое приглашение и шлём поздравление
     if not was_registered:
@@ -173,13 +163,9 @@ async def handle_me(request: web.Request) -> web.Response:
     row = await db.get_user(tg_user["id"])
     profile = None
     if row is not None:
-        birth = row["birth_date"]
         created = row["created_at"]
         profile = {
-            "full_name": row["full_name"],
-            "email": row["email"],
-            "phone": row["phone"],
-            "birth_date": birth.isoformat() if birth else None,
+            "med_id": row["med_id"],
             "created_at": created.isoformat() if created else None,
             "tariff": "Обычный",
         }

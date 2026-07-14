@@ -19,10 +19,7 @@ const els = {
     regForm: document.getElementById("reg-form"),
     regError: document.getElementById("reg-error"),
     regSubmit: document.getElementById("reg-submit"),
-    fullName: document.getElementById("full_name"),
-    phone: document.getElementById("phone"),
-    email: document.getElementById("email"),
-    birthDate: document.getElementById("birth_date"),
+    medId: document.getElementById("med_id"),
     messages: document.getElementById("messages"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
@@ -104,48 +101,33 @@ async function init() {
         state.aiEnabled = !!me.ai_enabled;
         state.user = me.user || null;
     } catch (e) { /* дефолт: не зарегистрирован */ }
-    prefillName();
+    updateRegButton();
     if (state.registered) openApp(); else showScreen("register");
 }
 
-function prefillName() {
-    const u = tg?.initDataUnsafe?.user;
-    if (u) {
-        const name = [u.first_name, u.last_name].filter(Boolean).join(" ");
-        if (name && !els.fullName.value) els.fullName.value = name;
-    }
-    updateRegButton();
-}
-
-// ---------- Регистрация ----------
+// ---------- Регистрация (по MedID) ----------
 
 function regValid() {
-    const email = els.email.value.trim();
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    return Boolean(
-        els.fullName.value.trim() && els.phone.value.trim() &&
-        email && emailOk && els.birthDate.value
-    );
+    return /^\d{1,6}$/.test(els.medId.value.trim());
 }
 
 function updateRegButton() { els.regSubmit.disabled = !regValid(); }
 
 async function submitRegistration() {
     els.regError.hidden = true;
-    if (!regValid()) return;
-    const payload = {
-        full_name: els.fullName.value.trim(),
-        phone: els.phone.value.trim(),
-        email: els.email.value.trim(),
-        birth_date: els.birthDate.value,
-    };
+    if (!regValid()) {
+        els.regError.textContent = "MedID — это число от 1 до 6 цифр.";
+        els.regError.hidden = false;
+        return;
+    }
+    const medId = els.medId.value.trim();
     els.regSubmit.disabled = true;
     els.regSubmit.textContent = T.submitting;
     try {
-        await api("/api/register", payload);
+        await api("/api/register", { med_id: medId });
         tg?.HapticFeedback?.notificationOccurred("success");
         state.registered = true;
-        state.user = { ...payload, created_at: new Date().toISOString(), tariff: "Обычный" };
+        state.user = { med_id: Number(medId), created_at: new Date().toISOString(), tariff: "Обычный" };
         openApp();
     } catch (e) {
         els.regError.textContent = e.message;
@@ -158,14 +140,18 @@ async function submitRegistration() {
 
 // ---------- Личный кабинет ----------
 
+function tgDisplayName() {
+    const u = tg?.initDataUnsafe?.user;
+    const name = u ? [u.first_name, u.last_name].filter(Boolean).join(" ") : "";
+    return name || "Пользователь";
+}
+
 function renderProfile() {
     const u = state.user || {};
-    const name = u.full_name || "—";
+    const name = tgDisplayName();
     document.getElementById("pf-name").textContent = name;
-    document.getElementById("pf-initial").textContent = (name.trim()[0] || "—");
-    document.getElementById("pf-email").textContent = u.email || "—";
-    document.getElementById("pf-phone").textContent = u.phone || "—";
-    document.getElementById("pf-birth").textContent = fmtDate(u.birth_date);
+    document.getElementById("pf-initial").textContent = (name.trim()[0] || "?");
+    document.getElementById("pf-medid").textContent = (u.med_id != null ? String(u.med_id) : "—");
     document.getElementById("pf-since").textContent = fmtDate(u.created_at);
     const tariff = u.tariff || "Обычный";
     document.getElementById("pf-tariff").textContent = tariff;
@@ -299,10 +285,12 @@ function logout() {
 // ---------- События ----------
 
 els.regForm.addEventListener("submit", (e) => { e.preventDefault(); submitRegistration(); });
-for (const f of [els.fullName, els.phone, els.email, els.birthDate]) {
-    f.addEventListener("input", updateRegButton);
-    f.addEventListener("change", updateRegButton);
-}
+els.medId.addEventListener("input", () => {
+    // оставляем только цифры, максимум 6
+    const cleaned = els.medId.value.replace(/\D/g, "").slice(0, 6);
+    if (cleaned !== els.medId.value) els.medId.value = cleaned;
+    updateRegButton();
+});
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);

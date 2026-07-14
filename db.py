@@ -29,7 +29,7 @@ async def init() -> None:
             CREATE TABLE IF NOT EXISTS users (
                 telegram_id BIGINT PRIMARY KEY,
                 username    TEXT,
-                full_name   TEXT NOT NULL,
+                full_name   TEXT,
                 phone       TEXT,
                 email       TEXT,
                 birth_date  DATE,
@@ -38,6 +38,10 @@ async def init() -> None:
             )
             """
         )
+        # Регистрация теперь по MedID. Старые поля оставляем nullable
+        # (совместимость с CRM, который читает email/phone/full_name).
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS med_id INTEGER")
+        await conn.execute("ALTER TABLE users ALTER COLUMN full_name DROP NOT NULL")
         # Сессия чата с RX Code AI (одна активная сессия на пользователя).
         # RX Code AI хранит контекст на своей стороне — держим только SessionId.
         await conn.execute(
@@ -69,35 +73,22 @@ async def close() -> None:
         await _pool.close()
 
 
-async def upsert_user(
-    telegram_id: int,
-    username: str | None,
-    full_name: str,
-    phone: str | None,
-    email: str | None,
-    birth_date=None,
-) -> None:
-    """Создаёт или обновляет запись пользователя по telegram_id."""
+async def upsert_user(telegram_id: int, med_id: int, username: str | None = None) -> None:
+    """Создаёт или обновляет пользователя по telegram_id (регистрация по MedID)."""
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO users (telegram_id, username, full_name, phone, email, birth_date)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO users (telegram_id, med_id, username)
+            VALUES ($1, $2, $3)
             ON CONFLICT (telegram_id) DO UPDATE SET
+                med_id     = EXCLUDED.med_id,
                 username   = EXCLUDED.username,
-                full_name  = EXCLUDED.full_name,
-                phone      = EXCLUDED.phone,
-                email      = EXCLUDED.email,
-                birth_date = EXCLUDED.birth_date,
                 updated_at = now()
             """,
             telegram_id,
+            med_id,
             username,
-            full_name,
-            phone,
-            email,
-            birth_date,
         )
 
 
