@@ -78,10 +78,17 @@ def build_where(filters: dict) -> tuple[str, list]:
     if filters.get("has_phone") is False:
         clauses.append("(phone IS NULL OR phone = '')")
 
-    # Конкретные получатели по email (мультивыбор)
-    emails = filters.get("emails")
-    if emails:
-        clauses.append(f"email = ANY({ph([str(e) for e in emails])})")
+    # Конкретные получатели по MedID (мультивыбор)
+    med_ids = filters.get("med_ids")
+    if med_ids:
+        ids = []
+        for m in med_ids:
+            try:
+                ids.append(int(m))
+            except (ValueError, TypeError):
+                pass
+        if ids:
+            clauses.append(f"med_id = ANY({ph(ids)})")
 
     where = " AND ".join(clauses) if clauses else "TRUE"
     return where, params
@@ -102,22 +109,33 @@ async def count_users(filters: dict) -> int:
         )
 
 
-async def search_emails(query: str, limit: int = 10) -> list[str]:
-    """Подсказки email для автодополнения: адреса, содержащие query."""
+async def search_med_ids(query: str, limit: int = 15) -> list[int]:
+    """Подсказки MedID для автодополнения: id, начинающиеся с введённых цифр."""
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT DISTINCT email FROM public.users
-            WHERE email IS NOT NULL AND email <> ''
-              AND email ILIKE '%' || $1 || '%'
-            ORDER BY email
+            SELECT DISTINCT med_id FROM public.users
+            WHERE med_id IS NOT NULL AND CAST(med_id AS TEXT) LIKE $1 || '%'
+            ORDER BY med_id
             LIMIT $2
             """,
             query,
             limit,
         )
-    return [r["email"] for r in rows]
+    return [r["med_id"] for r in rows]
+
+
+async def list_med_ids(limit: int = 1000) -> list[int]:
+    """Все зарегистрированные MedID по возрастанию (для кнопки «Список»)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT med_id FROM public.users WHERE med_id IS NOT NULL "
+            "ORDER BY med_id LIMIT $1",
+            limit,
+        )
+    return [r["med_id"] for r in rows]
 
 
 async def get_telegram_ids(filters: dict) -> list[int]:

@@ -82,6 +82,34 @@ textarea { resize: vertical; }
 .suggest div { padding: 10px 12px; cursor: pointer; font-size: 14px; }
 .suggest div:hover { background: var(--surface); }
 
+.medid-row { display: flex; gap: 8px; align-items: stretch; }
+.list-btn { flex: 0 0 auto; width: auto; margin: 0; padding: 11px 16px; }
+
+/* Модалка со списком MedID */
+.modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(22, 35, 58, .45);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-box {
+    width: 100%; max-width: 420px; max-height: 80vh;
+    background: var(--card); border-radius: 14px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; }
+.modal-tools { display: flex; gap: 14px; }
+.modal-list {
+    flex: 1 1 auto; overflow-y: auto; border: 1px solid var(--border);
+    border-radius: 10px; min-height: 120px;
+}
+.medid-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); cursor: pointer; font-size: 15px;
+}
+.medid-item:last-child { border-bottom: none; }
+.medid-item input { width: 18px; height: 18px; }
+.modal-list .empty { padding: 16px; color: var(--muted); text-align: center; }
+
 .preview { margin: 12px 0 0; font-size: 15px; }
 .preview strong { color: var(--brand); font-size: 20px; }
 

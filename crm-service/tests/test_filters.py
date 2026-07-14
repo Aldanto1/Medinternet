@@ -32,7 +32,7 @@ def test_combined_filter_shape():
     assert len(params) == 1
 
 
-def test_emails_filter_uses_any_param():
-    where, params = build_where({"emails": ["a@x.ru", "b@y.ru"]})
-    assert "email = ANY($1)" in where
-    assert params == [["a@x.ru", "b@y.ru"]]
+def test_med_ids_filter_uses_any_param():
+    where, params = build_where({"med_ids": ["12", 34, "56"]})
+    assert "med_id = ANY($1)" in where
+    assert params == [[12, 34, 56]]

@@ -49,7 +49,7 @@ def build_app() -> web.Application:
     # API
     app.router.add_post("/api/auth/login", auth.login)
     app.router.add_post("/api/segments/preview", segments.preview)
-    app.router.add_get("/api/segments/emails", segments.suggest_emails)
+    app.router.add_get("/api/segments/med-ids", segments.suggest_med_ids)
     app.router.add_post("/api/broadcast", broadcast.create_broadcast)
     app.router.add_get("/api/broadcast/{id}/status", broadcast.broadcast_status)
 

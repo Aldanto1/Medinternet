@@ -15,10 +15,11 @@ async def preview(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "count": count})
 
 
-async def suggest_emails(request: web.Request) -> web.Response:
-    """GET /api/segments/emails?q=... — подсказки email для автодополнения."""
+async def suggest_med_ids(request: web.Request) -> web.Response:
+    """GET /api/segments/med-ids — все MedID; с ?q=цифры — подсказки по вводу."""
     query = (request.query.get("q") or "").strip()
-    if not query:
-        return web.json_response({"ok": True, "emails": []})
-    emails = await db.search_emails(query, limit=10)
-    return web.json_response({"ok": True, "emails": emails})
+    if query:
+        med_ids = await db.search_med_ids(query, limit=15)
+    else:
+        med_ids = await db.list_med_ids(limit=1000)
+    return web.json_response({"ok": True, "med_ids": med_ids})

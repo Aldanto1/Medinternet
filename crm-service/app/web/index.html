@@ -56,11 +56,14 @@
                     </label>
                 </div>
                 <div class="email-field">
-                    <span class="field-label">Получатели по email (можно несколько)</span>
-                    <div class="email-box">
-                        <div id="email-chips" class="chips"></div>
-                        <input type="text" id="email-input" placeholder="начните вводить email…" autocomplete="off">
-                        <div id="email-suggest" class="suggest" hidden></div>
+                    <span class="field-label">Получатели по MedID (можно несколько)</span>
+                    <div id="medid-chips" class="chips"></div>
+                    <div class="medid-row">
+                        <div class="email-box" style="flex:1 1 auto;">
+                            <input type="text" id="medid-input" inputmode="numeric" placeholder="введите MedID…" autocomplete="off">
+                            <div id="medid-suggest" class="suggest" hidden></div>
+                        </div>
+                        <button type="button" id="medid-list-btn" class="btn list-btn" title="Список всех ID">Список</button>
                     </div>
                 </div>
 
@@ -108,6 +111,22 @@
             </div>
         </div>
     </section>
+
+    <!-- Модальное окно со списком всех MedID -->
+    <div id="medid-modal" class="modal" hidden>
+        <div class="modal-box">
+            <div class="modal-head">
+                <strong>Все зарегистрированные MedID</strong>
+                <button type="button" id="medid-modal-close" class="link-btn">✕</button>
+            </div>
+            <div class="modal-tools">
+                <button type="button" id="medid-select-all" class="link-btn">Выбрать все</button>
+                <button type="button" id="medid-clear-all" class="link-btn">Снять все</button>
+            </div>
+            <div id="medid-list" class="modal-list"></div>
+            <button type="button" id="medid-add-selected" class="btn primary">Добавить выбранные</button>
+        </div>
+    </div>
 
     <script src="/panel.js"></script>
 </body>

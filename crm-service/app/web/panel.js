@@ -64,7 +64,7 @@ function logout() {
     localStorage.removeItem("crm_last_broadcast");
     if (pollTimer) clearInterval(pollTimer);
     els("status-card").hidden = true;
-    selectedEmails = [];
+    selectedMedIds = [];
     renderChips();
     hideSuggest();
     blocks = [{ type: "title", text: "" }];
@@ -74,8 +74,7 @@ function logout() {
 
 // ---------- Фильтры ----------
 
-let selectedEmails = [];
-let emailTimer = null;
+let selectedMedIds = [];   // выбранные MedID (числа)
 
 function collectFilters() {
     const f = {};
@@ -87,24 +86,32 @@ function collectFilters() {
     if (to) f.created_to = to;
     if (email) f.has_email = email === "yes";
     if (phone) f.has_phone = phone === "yes";
-    if (selectedEmails.length) f.emails = selectedEmails.slice();
+    if (selectedMedIds.length) f.med_ids = selectedMedIds.slice();
     return f;
 }
 
-// ---------- Мультивыбор получателей по email ----------
+// ---------- Мультивыбор получателей по MedID ----------
+
+function addMedId(id) {
+    id = Number(id);
+    if (!Number.isFinite(id)) return;
+    if (selectedMedIds.indexOf(id) === -1) selectedMedIds.push(id);
+    selectedMedIds.sort((a, b) => a - b);
+    renderChips();
+}
 
 function renderChips() {
-    const box = els("email-chips");
+    const box = els("medid-chips");
     box.innerHTML = "";
-    selectedEmails.forEach((em) => {
+    selectedMedIds.forEach((id) => {
         const chip = document.createElement("span");
         chip.className = "chip";
-        chip.textContent = em;
+        chip.textContent = id;
         const x = document.createElement("button");
         x.type = "button";
         x.textContent = "✕";
         x.addEventListener("click", () => {
-            selectedEmails = selectedEmails.filter((e) => e !== em);
+            selectedMedIds = selectedMedIds.filter((e) => e !== id);
             renderChips();
         });
         chip.appendChild(x);
@@ -113,45 +120,89 @@ function renderChips() {
 }
 
 function hideSuggest() {
-    els("email-suggest").hidden = true;
-    els("email-suggest").innerHTML = "";
+    els("medid-suggest").hidden = true;
+    els("medid-suggest").innerHTML = "";
 }
 
-function renderSuggest(emails) {
-    const box = els("email-suggest");
+function renderSuggest(ids) {
+    const box = els("medid-suggest");
     box.innerHTML = "";
-    const list = (emails || []).filter((e) => selectedEmails.indexOf(e) === -1);
+    const list = (ids || []).filter((e) => selectedMedIds.indexOf(Number(e)) === -1);
     if (!list.length) { hideSuggest(); return; }
-    list.forEach((em) => {
+    list.forEach((id) => {
         const d = document.createElement("div");
-        d.textContent = em;
-        // mousedown срабатывает раньше blur — успеваем добавить до скрытия списка
+        d.textContent = id;
         d.addEventListener("mousedown", (ev) => {
             ev.preventDefault();
-            if (selectedEmails.indexOf(em) === -1) selectedEmails.push(em);
-            renderChips();
-            // Оставляем введённый текст, чтобы быстро выбрать несколько похожих адресов,
-            // и обновляем список (уже без только что выбранного).
-            const q = els("email-input").value.trim();
-            if (q) searchEmails(q); else hideSuggest();
-            els("email-input").focus();
+            addMedId(id);
+            const q = els("medid-input").value.trim();
+            if (q) searchMedIds(q); else hideSuggest();
+            els("medid-input").focus();
         });
         box.appendChild(d);
     });
     box.hidden = false;
 }
 
-async function searchEmails(q) {
+async function searchMedIds(q) {
     try {
         const headers = {};
         if (token) headers["Authorization"] = "Bearer " + token;
-        const res = await fetch("/api/segments/emails?q=" + encodeURIComponent(q), { headers });
+        const res = await fetch("/api/segments/med-ids?q=" + encodeURIComponent(q), { headers });
         if (res.status === 401) { logout(); return; }
         const data = await res.json().catch(() => ({}));
-        renderSuggest(data.emails);
+        renderSuggest(data.med_ids);
     } catch (e) {
         hideSuggest();
     }
+}
+
+// ---------- Модалка: список всех MedID ----------
+
+async function openMedidList() {
+    els("medid-list").innerHTML = '<div class="empty">Загрузка…</div>';
+    els("medid-modal").hidden = false;
+    try {
+        const headers = {};
+        if (token) headers["Authorization"] = "Bearer " + token;
+        const res = await fetch("/api/segments/med-ids", { headers });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json().catch(() => ({}));
+        renderMedidList(data.med_ids || []);
+    } catch (e) {
+        els("medid-list").innerHTML = '<div class="empty">Не удалось загрузить</div>';
+    }
+}
+
+function renderMedidList(ids) {
+    const listEl = els("medid-list");
+    listEl.innerHTML = "";
+    if (!ids.length) {
+        listEl.innerHTML = '<div class="empty">Пока нет зарегистрированных</div>';
+        return;
+    }
+    ids.forEach((id) => {
+        const label = document.createElement("label");
+        label.className = "medid-item";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = id;
+        cb.checked = selectedMedIds.indexOf(Number(id)) !== -1;
+        const span = document.createElement("span");
+        span.textContent = id;
+        label.appendChild(cb);
+        label.appendChild(span);
+        listEl.appendChild(label);
+    });
+}
+
+function applyMedidSelection() {
+    els("medid-list").querySelectorAll("input:checked").forEach((cb) => addMedId(cb.value));
+    els("medid-modal").hidden = true;
+}
+
+function setAllChecks(checked) {
+    els("medid-list").querySelectorAll("input[type=checkbox]").forEach((cb) => { cb.checked = checked; });
 }
 
 // ---------- Конструктор сообщения ----------
@@ -344,18 +395,38 @@ els("file-clear").addEventListener("click", () => {
     els("file-clear").hidden = true;
 });
 
-// Автодополнение email
-els("email-input").addEventListener("input", () => {
-    const q = els("email-input").value.trim();
-    clearTimeout(emailTimer);
-    if (q.length < 1) { hideSuggest(); return; }
-    emailTimer = setTimeout(() => searchEmails(q), 250);
+// Автодополнение MedID (только цифры)
+let medidTimer = null;
+els("medid-input").addEventListener("input", () => {
+    const cleaned = els("medid-input").value.replace(/\D/g, "");
+    if (cleaned !== els("medid-input").value) els("medid-input").value = cleaned;
+    clearTimeout(medidTimer);
+    if (cleaned.length < 1) { hideSuggest(); return; }
+    medidTimer = setTimeout(() => searchMedIds(cleaned), 250);
 });
-els("email-input").addEventListener("blur", () => setTimeout(hideSuggest, 150));
-els("email-input").addEventListener("focus", () => {
-    const q = els("email-input").value.trim();
-    if (q) searchEmails(q);
+els("medid-input").addEventListener("blur", () => setTimeout(hideSuggest, 150));
+els("medid-input").addEventListener("focus", () => {
+    const q = els("medid-input").value.trim();
+    if (q) searchMedIds(q);
 });
+// Enter в поле MedID — добавить введённый id
+els("medid-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        const v = els("medid-input").value.trim();
+        if (v) { addMedId(v); els("medid-input").value = ""; hideSuggest(); }
+    }
+});
+
+// Модалка со списком всех MedID
+els("medid-list-btn").addEventListener("click", openMedidList);
+els("medid-modal-close").addEventListener("click", () => { els("medid-modal").hidden = true; });
+els("medid-modal").addEventListener("click", (e) => {
+    if (e.target === els("medid-modal")) els("medid-modal").hidden = true; // клик по фону
+});
+els("medid-select-all").addEventListener("click", () => setAllChecks(true));
+els("medid-clear-all").addEventListener("click", () => setAllChecks(false));
+els("medid-add-selected").addEventListener("click", applyMedidSelection);
 
 // Конструктор: меню «Добавить блок»
 els("add-block-btn").addEventListener("click", () => {
