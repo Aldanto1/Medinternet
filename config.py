@@ -55,8 +55,8 @@ NEURO_API_URL = os.getenv("NEURO_API_URL")
 if NEURO_API_URL:
     NEURO_API_URL = NEURO_API_URL.strip().rstrip("/")
 NEURO_API_KEY = os.getenv("NEURO_API_KEY")
-# Название канала, под которым бот создаёт сессии в RX Code AI
-NEURO_CHANNEL = os.getenv("NEURO_CHANNEL", "telegram")
+# Канал RX Code AI (для этого бота — michat)
+NEURO_CHANNEL = os.getenv("NEURO_CHANNEL", "michat")
 
 
 def get_windows_socks_proxy():

@@ -33,7 +33,7 @@ def is_configured() -> bool:
 
 def _headers() -> dict:
     return {
-        "Authorization": f"Bearer {NEURO_API_KEY}",
+        "X-API-Key": NEURO_API_KEY,
         "Content-Type": "application/json",
     }
 
