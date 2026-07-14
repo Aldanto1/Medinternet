@@ -55,6 +55,10 @@ NEURO_API_URL = os.getenv("NEURO_API_URL")
 if NEURO_API_URL:
     NEURO_API_URL = NEURO_API_URL.strip().rstrip("/")
 NEURO_API_KEY = os.getenv("NEURO_API_KEY")
+if NEURO_API_KEY:
+    # Убираем пробелы/переносы строк (частый артефакт вставки в переменные) —
+    # иначе aiohttp падает: "Forbidden control character detected in headers".
+    NEURO_API_KEY = NEURO_API_KEY.strip()
 # Канал RX Code AI (для этого бота — michat)
 NEURO_CHANNEL = os.getenv("NEURO_CHANNEL", "michat")
 
