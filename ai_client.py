@@ -5,6 +5,7 @@
   2. POST /api/chats/{chatId}/messages  -> отправить сообщение, получить ответ ИИ
 Авторизация — заголовок Authorization: Bearer <ключ>.
 """
+import json
 import logging
 
 import aiohttp
@@ -78,3 +79,36 @@ async def send_message(chat_id: str, message: str) -> dict:
         "markdown": data.get("Summary"),
         "sources": sources,
     }
+
+
+async def stream_message(chat_id: str, message: str):
+    """Асинхронный генератор ответа (SSE от RX Code).
+
+    Yield'ит кортежи (kind, value):
+      ("action", "Ищу данные…")  — статус обработки
+      ("text",   "кусок ответа")  — часть текста ответа (markdown)
+    """
+    url = f"{NEURO_API_URL}/api/chats/{chat_id}/messages/stream"
+    payload = {"Message": message}
+    async with aiohttp.ClientSession(timeout=_MESSAGE_TIMEOUT) as session:
+        async with session.post(url, json=payload, headers=_headers()) as resp:
+            if resp.status == 404:
+                raise SessionNotFound()
+            if resp.status != 200:
+                text = await resp.text()
+                raise AIError(f"stream HTTP {resp.status}: {text[:200]}")
+            async for raw in resp.content:
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data:
+                    continue
+                try:
+                    obj = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("Text"):
+                    yield ("text", obj["Text"])
+                elif obj.get("Action"):
+                    yield ("action", obj["Action"])

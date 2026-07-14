@@ -190,44 +190,39 @@ function addTyping() {
     return el;
 }
 
-function renderAnswer(el, data) {
-    el.innerHTML = "";
-    el.style.whiteSpace = data.answer_html ? "normal" : "pre-wrap";
-    const content = document.createElement("div");
-    if (data.answer_html) {
-        content.innerHTML = data.answer_html;
-    } else {
-        content.style.whiteSpace = "pre-wrap";
-        content.textContent = data.answer_md || T.emptyAnswer;
-    }
-    el.appendChild(content);
+function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
 
-    if (Array.isArray(data.sources) && data.sources.length) {
-        const box = document.createElement("div");
-        box.className = "sources";
-        const title = document.createElement("div");
-        title.className = "sources-title";
-        title.textContent = T.sources;
-        box.appendChild(title);
-        for (const s of data.sources) {
-            if (!s || (!s.url && !s.title)) continue;
-            if (s.url) {
-                const a = document.createElement("a");
-                a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
-                a.textContent = s.title || s.url;
-                box.appendChild(a);
-            } else {
-                const span = document.createElement("div");
-                span.textContent = s.title;
-                box.appendChild(span);
-            }
-        }
-        el.appendChild(box);
-    }
-    scrollToBottom();
+// ---------- Лёгкий рендер markdown (для потокового ответа) ----------
+
+function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
+function mdToHtml(md) {
+    let s = escapeHtml(md);
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    const lines = s.split("\n");
+    let out = "", inList = false;
+    const closeList = () => { if (inList) { out += "</ul>"; inList = false; } };
+    for (const line of lines) {
+        const h = line.match(/^(#{1,6})\s+(.*)$/);
+        const li = line.match(/^\s*[-•]\s+(.*)$/);
+        if (h) { closeList(); out += '<div class="md-h">' + h[2] + "</div>"; }
+        else if (li) { if (!inList) { out += "<ul>"; inList = true; } out += "<li>" + li[1] + "</li>"; }
+        else if (line.trim()) { closeList(); out += "<div>" + line + "</div>"; }
+        else { closeList(); }
+    }
+    closeList();
+    return out;
+}
+
+function setStatus(el, text) {
+    el.innerHTML = '<span class="status-line"></span> '
+        + '<span class="typing"><span></span><span></span><span></span></span>';
+    el.querySelector(".status-line").textContent = text;
+}
 
 let sending = false;
 async function sendChat() {
@@ -239,13 +234,54 @@ async function sendChat() {
     autoGrow();
     addBubble("user", text);
     const typing = addTyping();
+    let bubble = null, acc = "";
+
     try {
-        const data = await api("/api/ai/message", { message: text });
-        typing.remove();
-        renderAnswer(addBubble("ai", ""), data);
+        const res = await fetch("/api/ai/message/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData, message: text }),
+        });
+        if (!res.ok || !res.body) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(d.error || T.errGeneric);
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let i;
+            while ((i = buf.indexOf("\n\n")) !== -1) {
+                const line = buf.slice(0, i).trim();
+                buf = buf.slice(i + 2);
+                if (!line.startsWith("data:")) continue;
+                let obj;
+                try { obj = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+                if (obj.kind === "action" && !bubble) {
+                    setStatus(typing, obj.value);
+                    scrollToBottom();
+                } else if (obj.kind === "text") {
+                    if (!bubble) {
+                        typing.remove();
+                        bubble = addBubble("ai", "");
+                        bubble.style.whiteSpace = "normal";
+                    }
+                    acc += obj.value;
+                    bubble.innerHTML = mdToHtml(acc);
+                    scrollToBottom();
+                } else if (obj.kind === "error") {
+                    if (!bubble) typing.remove();
+                    addBubble("error", obj.value);
+                }
+            }
+        }
+        if (!bubble && !acc) typing.remove();
     } catch (e) {
         typing.remove();
-        addBubble("error", e.message);
+        if (!acc) addBubble("error", e.message || T.errGeneric);
     } finally {
         sending = false;
         els.chatSend.disabled = false;

@@ -220,6 +220,59 @@ async def handle_ai_message(request: web.Request) -> web.Response:
     })
 
 
+async def handle_ai_stream(request: web.Request) -> web.Response:
+    """Потоковый ответ RX Code AI (SSE) — текст появляется постепенно."""
+    tg_user, body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+    if not ai_client.is_configured():
+        return web.json_response({"ok": False, "error": "Нейросеть не настроена"}, status=503)
+    message = (body.get("message") or "").strip()
+    if not message:
+        return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
+
+    tg_id = tg_user["id"]
+    resp = web.StreamResponse(
+        status=200,
+        headers={
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
+    await resp.prepare(request)
+
+    async def emit(obj):
+        await resp.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
+
+    async def run(cid):
+        async for kind, value in ai_client.stream_message(cid, message):
+            await emit({"kind": kind, "value": value})
+
+    try:
+        chat_id = await db.get_ai_chat_id(tg_id)
+        if not chat_id:
+            chat_id = await ai_client.create_session(tg_id)
+            await db.set_ai_chat_id(tg_id, chat_id)
+        try:
+            await run(chat_id)
+        except ai_client.SessionNotFound:
+            chat_id = await ai_client.create_session(tg_id)
+            await db.set_ai_chat_id(tg_id, chat_id)
+            await run(chat_id)
+        await emit({"kind": "done"})
+    except ai_client.AIError as e:
+        logger.warning("Ошибка RX Code AI (stream): %s", e)
+        await emit({"kind": "error", "value": "Нейросеть недоступна, попробуйте позже"})
+    except Exception as e:
+        logger.warning("Ошибка стрима %s: %s", tg_id, e)
+        try:
+            await emit({"kind": "error", "value": "Что-то пошло не так. Попробуйте позже."})
+        except Exception:
+            pass
+    return resp
+
+
 async def handle_ai_reset(request: web.Request) -> web.Response:
     """Сбрасывает текущую сессию, чтобы начать новый диалог."""
     tg_user, _body, err = await _authenticated_user(request)
@@ -266,6 +319,7 @@ def build_app(bot=None) -> web.Application:
     app.router.add_post("/api/register", handle_register)
     app.router.add_post("/api/me", handle_me)
     app.router.add_post("/api/ai/message", handle_ai_message)
+    app.router.add_post("/api/ai/message/stream", handle_ai_stream)
     app.router.add_post("/api/ai/reset", handle_ai_reset)
     return app
 
