@@ -1,10 +1,15 @@
-from aiogram import Router
+from pathlib import Path
+from urllib.parse import quote
+
+from aiogram import Router, F
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import (
     Message,
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     WebAppInfo,
+    FSInputFile,
 )
 
 import db
@@ -12,6 +17,11 @@ import link_token
 from config import WEBAPP_URL, webapp_url
 
 router = Router()
+
+SITE_URL = "https://medinternet.ru/"
+LOGO_PATH = Path(__file__).resolve().parent / "webapp" / "logo.png"
+# Кэш file_id логотипа: первую отправку грузим файлом, дальше — по id (без повторной загрузки).
+_logo_file_id: str | None = None
 
 
 def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
@@ -27,8 +37,9 @@ def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
 
 
 _ABOUT = (
-    "Я — бот <b>Мединтернет</b> с медицинским поисковиком: это ИИ, созданный "
-    "специально для врачей и работников аптек (совместно с Сеченовским Университетом).\n\n"
+    f'Я — бот <a href="{SITE_URL}"><b>Мединтернет</b></a> с медицинским поисковиком: '
+    "это ИИ, созданный специально для врачей и работников аптек "
+    "(совместно с Сеченовским Университетом).\n\n"
     "<b>Что умеет медицинский поисковик:</b>\n"
     "• отвечает на вопросы о препаратах, болезнях и схемах лечения;\n"
     "• ищет по классификациям МКБ-10 и АТХ;\n"
@@ -36,32 +47,118 @@ _ABOUT = (
     "• даёт структурированные ответы со ссылками на проверенные источники."
 )
 
+_PARTNERS_TEXT = (
+    "🤝 <b>Партнёрам</b>\n\n"
+    "Приглашайте коллег в Мединтернет и получайте <b>дни подписки бесплатно</b>!\n\n"
+    "• За каждого друга, который зарегистрируется по вашей ссылке, "
+    "вы получаете бонусные дни доступа к медицинскому поисковику.\n"
+    "• Чем больше коллег присоединится — тем дольше пользуетесь всеми функциями бесплатно.\n\n"
+    "Отправьте приглашение удобным способом:"
+)
+
+_INSTRUCTION_TEXT = (
+    "📖 <b>Как задавать вопросы поисковику</b>\n\n"
+    "Чтобы получать максимально точные ответы, следуйте рекомендациям:\n\n"
+    "<b>1. Будьте конкретны</b>\n"
+    "Указывайте возраст, сопутствующие болезни, принимаемые лекарства.\n"
+    "✗ «Что делать при высоком давлении?»\n"
+    "✓ «Препараты первой линии при гипертоническом кризе у пациента 60 лет с СД 2 типа?»\n\n"
+    "<b>2. Используйте терминологию</b>\n"
+    "Поисковик понимает аббревиатуры и стандарты (ESC, NIH, ICD-11).\n\n"
+    "<b>3. Просите источники</b>\n"
+    "Уточняйте: «Какие рекомендации WHO?», «Есть ли мета-анализы?».\n\n"
+    "<b>4. Разбивайте сложные запросы</b>\n"
+    "Пошаговые вопросы дают более структурированные ответы.\n\n"
+    "<b>5. Уточняйте контекст</b>\n"
+    "«У пациента ХБП 3 стадии, как это влияет?», «Какие исключения при беременности?».\n\n"
+    "<b>6. Проверяйте противоречия</b>\n"
+    "Если ответ вызывает сомнения: «Это противоречит данным ABCD-2023. Объясните расхождение?»"
+)
+
+
+def _main_keyboard() -> InlineKeyboardMarkup:
+    """Навигация под главным сообщением."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🤝 Партнёрам", callback_data="nav:partners"),
+                InlineKeyboardButton(text="💳 Мой тариф", callback_data="nav:tariff"),
+            ],
+            [
+                InlineKeyboardButton(text="📖 Инструкция", callback_data="nav:instruction"),
+                InlineKeyboardButton(text="❓ Помощь", callback_data="nav:help"),
+            ],
+        ]
+    )
+
+
+def _back_keyboard() -> InlineKeyboardMarkup:
+    """Кнопка возврата к главному сообщению."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")]
+        ]
+    )
+
+
+def _partners_keyboard(bot_username: str) -> InlineKeyboardMarkup:
+    """Кнопки шеринга приглашения + возврат."""
+    bot_link = f"https://t.me/{bot_username}"
+    invite = "Присоединяйтесь к Мединтернету — медицинскому ИИ-поисковику для врачей и фармацевтов:"
+    tg_share = f"https://t.me/share/url?url={quote(bot_link)}&text={quote(invite)}"
+    wa_share = f"https://wa.me/?text={quote(invite + ' ' + bot_link)}"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📨 Отправить в Telegram", url=tg_share)],
+            [InlineKeyboardButton(text="💬 Отправить в WhatsApp", url=wa_share)],
+            [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")],
+        ]
+    )
+
+
+async def _main_caption(user, user_id: int) -> str:
+    """Подпись главного сообщения (зависит от того, зарегистрирован ли пользователь)."""
+    greeting = f"👋 Здравствуйте, <b>{user.full_name}</b>!\n\n"
+    if await db.user_exists(user_id):
+        tail = (
+            "\n\n✅ Вы зарегистрированы. Медицинский поисковик доступен через "
+            "кнопку меню слева от поля ввода."
+        )
+    else:
+        tail = (
+            "\n\nЧтобы получить доступ, зайдите в свой личный кабинет на "
+            "<b>Мединтернет</b> и перейдите по ссылке для регистрации в Telegram."
+        )
+    return greeting + _ABOUT + tail
+
+
+async def _send_main(message: Message, user, user_id: int) -> None:
+    """Отправляет главное сообщение: логотип + приветствие + навигация."""
+    global _logo_file_id
+    caption = await _main_caption(user, user_id)
+    photo = _logo_file_id or FSInputFile(LOGO_PATH)
+    msg = await message.answer_photo(photo, caption=caption, reply_markup=_main_keyboard())
+    if _logo_file_id is None and msg.photo:
+        _logo_file_id = msg.photo[-1].file_id
+
+
+async def _safe_delete(message: Message) -> None:
+    """Удаляет сообщение, игнорируя ошибки (уже удалено / слишком старое)."""
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, command: CommandObject):
-    """Обработчик /start. С deep-link токеном — регистрация, иначе — приветствие."""
+    """Обработчик /start. С deep-link токеном — регистрация, иначе — главное меню."""
     token = (command.args or "").strip()
     if token:
         await _register_via_link(message, token)
         return
 
-    kb = _miniapp_keyboard()
-    greeting = f"👋 Здравствуйте, <b>{message.from_user.full_name}</b>!\n\n"
-
-    if await db.user_exists(message.from_user.id):
-        await message.answer(
-            greeting + _ABOUT + "\n\nОткройте <b>Mini App</b>, чтобы начать работу.",
-            reply_markup=kb,
-        )
-        return
-
-    await message.answer(
-        greeting + _ABOUT + (
-            "\n\nЧтобы получить доступ, зайдите в свой личный кабинет на "
-            "<b>medinternet.ru</b> и перейдите по ссылке для регистрации в Telegram."
-        ),
-        reply_markup=kb,
-    )
+    await _send_main(message, message.from_user, message.from_user.id)
 
 
 async def _register_via_link(message: Message, token: str) -> None:
@@ -89,6 +186,40 @@ async def _register_via_link(message: Message, token: str) -> None:
         "Все функции доступны. Откройте <b>Mini App</b>, чтобы начать работу.",
         reply_markup=kb,
     )
+
+
+# ---------- Навигация по кнопкам главного меню ----------
+
+
+@router.callback_query(F.data == "nav:home")
+async def cb_home(callback: CallbackQuery):
+    """Возврат к главному сообщению."""
+    await callback.answer()
+    await _safe_delete(callback.message)
+    await _send_main(callback.message, callback.from_user, callback.from_user.id)
+
+
+@router.callback_query(F.data == "nav:partners")
+async def cb_partners(callback: CallbackQuery):
+    """Партнёрская программа с кнопками шеринга."""
+    await callback.answer()
+    await _safe_delete(callback.message)
+    me = await callback.bot.me()
+    await callback.message.answer(_PARTNERS_TEXT, reply_markup=_partners_keyboard(me.username))
+
+
+@router.callback_query(F.data == "nav:instruction")
+async def cb_instruction(callback: CallbackQuery):
+    """Инструкция — как пользоваться поисковиком."""
+    await callback.answer()
+    await _safe_delete(callback.message)
+    await callback.message.answer(_INSTRUCTION_TEXT, reply_markup=_back_keyboard())
+
+
+@router.callback_query(F.data.in_({"nav:tariff", "nav:help"}))
+async def cb_stub(callback: CallbackQuery):
+    """Заглушки для разделов, которые опишем позже."""
+    await callback.answer("Раздел скоро появится 🔧", show_alert=True)
 
 
 @router.message(Command("help"))
