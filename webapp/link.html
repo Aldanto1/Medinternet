@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мединтернет — привязка Telegram</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            padding: 24px; background: #eef2f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #16233a;
+        }
+        .card {
+            width: 100%; max-width: 420px; background: #fff; border-radius: 16px;
+            padding: 28px 24px; text-align: center; box-shadow: 0 10px 30px rgba(22,35,58,.08);
+        }
+        .badge {
+            display: inline-block; font-size: 12px; color: #6b7a90; background: #f4f7fb;
+            border-radius: 12px; padding: 4px 10px; margin-bottom: 14px;
+        }
+        h1 { font-size: 20px; margin: 0 0 10px; }
+        p { color: #6b7a90; font-size: 14px; line-height: 1.5; margin: 0 0 22px; }
+        .btn {
+            display: block; text-decoration: none; text-align: center;
+            background: #16a79c; color: #fff; font-size: 16px; font-weight: 600;
+            padding: 15px 18px; border-radius: 12px;
+        }
+        .btn:active { background: #0f857b; }
+        .note { font-size: 12px; color: #8a97a6; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="badge">Личный кабинет · прототип</div>
+        <h1>Привязка Telegram к Мединтернет</h1>
+        <p>Нажмите кнопку ниже, чтобы перейти в нашего бота и завершить регистрацию.
+           Ссылка одноразовая и действует только для вас.</p>
+        <a class="btn" href="{{BOT_LINK}}">Перейти в Telegram-бот →</a>
+        <div class="note">Ссылка обновляется при каждом заходе на страницу.</div>
+    </main>
+</body>
+</html>

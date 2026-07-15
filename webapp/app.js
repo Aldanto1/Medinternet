@@ -16,10 +16,7 @@ const els = {
     loading: document.getElementById("loading"),
     register: document.getElementById("screen-register"),
     app: document.getElementById("app"),
-    regForm: document.getElementById("reg-form"),
-    regError: document.getElementById("reg-error"),
-    regSubmit: document.getElementById("reg-submit"),
-    medId: document.getElementById("med_id"),
+    siteLink: document.getElementById("site-link"),
     messages: document.getElementById("messages"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
@@ -101,41 +98,14 @@ async function init() {
         state.aiEnabled = !!me.ai_enabled;
         state.user = me.user || null;
     } catch (e) { /* дефолт: не зарегистрирован */ }
-    updateRegButton();
     if (state.registered) openApp(); else showScreen("register");
 }
 
-// ---------- Регистрация (по MedID) ----------
+// ---------- Регистрация: переход на сайт ----------
 
-function regValid() {
-    return /^\d{1,6}$/.test(els.medId.value.trim());
-}
-
-function updateRegButton() { els.regSubmit.disabled = !regValid(); }
-
-async function submitRegistration() {
-    els.regError.hidden = true;
-    if (!regValid()) {
-        els.regError.textContent = "MedinternetID — это число от 1 до 6 цифр.";
-        els.regError.hidden = false;
-        return;
-    }
-    const medId = els.medId.value.trim();
-    els.regSubmit.disabled = true;
-    els.regSubmit.textContent = T.submitting;
-    try {
-        await api("/api/register", { med_id: medId });
-        tg?.HapticFeedback?.notificationOccurred("success");
-        state.registered = true;
-        state.user = { med_id: Number(medId), created_at: new Date().toISOString(), tariff: "Обычный" };
-        openApp();
-    } catch (e) {
-        els.regError.textContent = e.message;
-        els.regError.hidden = false;
-    } finally {
-        els.regSubmit.textContent = T.submit;
-        updateRegButton();
-    }
+function openSite() {
+    const url = window.location.origin + "/link";
+    if (tg?.openLink) tg.openLink(url); else window.open(url, "_blank");
 }
 
 // ---------- Личный кабинет ----------
@@ -151,18 +121,12 @@ function renderProfile() {
     const name = tgDisplayName();
     document.getElementById("pf-name").textContent = name;
     document.getElementById("pf-initial").textContent = (name.trim()[0] || "?");
-    document.getElementById("pf-medid").textContent = (u.med_id != null ? String(u.med_id) : "—");
-    document.getElementById("pf-since").textContent = fmtDate(u.created_at);
+    document.getElementById("pf-fio").textContent = u.full_name || "—";
+    document.getElementById("pf-specialty").textContent = u.specialty || "—";
+    document.getElementById("pf-position").textContent = u.position || "—";
     const tariff = u.tariff || "Обычный";
     document.getElementById("pf-tariff").textContent = tariff;
     document.getElementById("pf-tariff-name").textContent = tariff;
-}
-
-function fmtDate(iso) {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    if (isNaN(d)) return "—";
-    return d.toLocaleDateString("ru-RU");
 }
 
 // ---------- Чат ----------
@@ -320,13 +284,7 @@ function logout() {
 
 // ---------- События ----------
 
-els.regForm.addEventListener("submit", (e) => { e.preventDefault(); submitRegistration(); });
-els.medId.addEventListener("input", () => {
-    // оставляем только цифры, максимум 6
-    const cleaned = els.medId.value.replace(/\D/g, "").slice(0, 6);
-    if (cleaned !== els.medId.value) els.medId.value = cleaned;
-    updateRegButton();
-});
+els.siteLink.addEventListener("click", (e) => { e.preventDefault(); openSite(); });
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);

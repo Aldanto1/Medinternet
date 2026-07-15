@@ -12,6 +12,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import ai_client
 import db
+import link_token
 from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL, WEBAPP_VERSION, webapp_url
 
 logger = logging.getLogger(__name__)
@@ -165,7 +166,9 @@ async def handle_me(request: web.Request) -> web.Response:
     if row is not None:
         created = row["created_at"]
         profile = {
-            "med_id": row["med_id"],
+            "full_name": row["full_name"],
+            "specialty": row["specialty"],
+            "position": row["position"],
             "created_at": created.isoformat() if created else None,
             "tariff": "Обычный",
         }
@@ -309,10 +312,26 @@ async def handle_index(_request: web.Request) -> web.Response:
     )
 
 
-def build_app(bot=None) -> web.Application:
+async def handle_link(request: web.Request) -> web.Response:
+    """Прототип личного кабинета medinternet.ru: выдаёт свежую одноразовую
+    ссылку на бота при каждом заходе (deep-link с подписанным токеном)."""
+    username = request.app.get("bot_username") or ""
+    token = link_token.make_link_token()
+    bot_link = f"https://t.me/{username}?start={token}"
+    html = (WEBAPP_DIR / "link.html").read_text(encoding="utf-8")
+    return web.Response(
+        text=html.replace("{{BOT_LINK}}", bot_link),
+        content_type="text/html",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def build_app(bot=None, bot_username: str = "") -> web.Application:
     app = web.Application()
     app["bot"] = bot  # нужен для уведомлений после регистрации
+    app["bot_username"] = bot_username  # для deep-link на странице /link
     app.router.add_get("/", handle_index)
+    app.router.add_get("/link", handle_link)
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
     app.router.add_get("/logo.png", _file("logo.png"))
@@ -324,9 +343,9 @@ def build_app(bot=None) -> web.Application:
     return app
 
 
-async def start_webserver(bot=None) -> web.AppRunner:
+async def start_webserver(bot=None, bot_username: str = "") -> web.AppRunner:
     """Поднимает веб-сервер на локальном порту и возвращает runner для остановки."""
-    runner = web.AppRunner(build_app(bot))
+    runner = web.AppRunner(build_app(bot, bot_username))
     await runner.setup()
     site = web.TCPSite(runner, WEBAPP_HOST, WEBAPP_PORT)
     await site.start()

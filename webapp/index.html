@@ -15,15 +15,10 @@
         <div class="scroll">
             <div class="card">
                 <img class="logo-img" src="/logo.png" alt="Мединтернет">
-                <p class="subtitle">Для регистрации введите ваш <b>MedinternetID</b> — число от 1 до 6 цифр.</p>
-                <form id="reg-form" novalidate>
-                    <label><span>MedinternetID</span> <span class="req">*</span>
-                        <input type="text" id="med_id" inputmode="numeric" autocomplete="off"
-                               maxlength="6" placeholder="например, 12345" required>
-                    </label>
-                    <p id="reg-error" class="error" hidden></p>
-                    <button type="submit" id="reg-submit" class="btn btn-primary" disabled>Зарегистрироваться</button>
-                </form>
+                <p class="subtitle">
+                    Зайдите на сайт <a id="site-link" href="#">medinternet.ru</a> и в своём
+                    личном кабинете перейдите по ссылке для регистрации в Telegram.
+                </p>
             </div>
         </div>
     </section>
@@ -67,8 +62,9 @@
 
                     <div class="section-title">Данные</div>
                     <div class="info-list">
-                        <div class="info-row"><span>MedinternetID</span><b id="pf-medid">—</b></div>
-                        <div class="info-row"><span>С нами с</span><b id="pf-since">—</b></div>
+                        <div class="info-row"><span>ФИО</span><b id="pf-fio">—</b></div>
+                        <div class="info-row"><span>Специальность</span><b id="pf-specialty">—</b></div>
+                        <div class="info-row"><span>Должность</span><b id="pf-position">—</b></div>
                     </div>
 
                     <div class="section-title">Тариф</div>

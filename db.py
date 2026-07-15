@@ -42,6 +42,19 @@ async def init() -> None:
         # (совместимость с CRM, который читает email/phone/full_name).
         await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS med_id INTEGER")
         await conn.execute("ALTER TABLE users ALTER COLUMN full_name DROP NOT NULL")
+        # Профиль (заполняется позже из БД medinternet)
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty TEXT")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT")
+        # Одноразовые токены deep-link регистрации
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS link_tokens (
+                token   TEXT PRIMARY KEY,
+                used_by BIGINT,
+                used_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
         # Сессия чата с RX Code AI (одна активная сессия на пользователя).
         # RX Code AI хранит контекст на своей стороне — держим только SessionId.
         await conn.execute(
@@ -90,6 +103,39 @@ async def upsert_user(telegram_id: int, med_id: int, username: str | None = None
             med_id,
             username,
         )
+
+
+async def register_user(telegram_id: int, username: str | None = None) -> None:
+    """Регистрация по deep-link: создаёт запись пользователя (профиль пока пустой)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO users (telegram_id, username)
+            VALUES ($1, $2)
+            ON CONFLICT (telegram_id) DO UPDATE SET
+                username   = EXCLUDED.username,
+                updated_at = now()
+            """,
+            telegram_id,
+            username,
+        )
+
+
+async def claim_link_token(token: str, telegram_id: int) -> bool:
+    """Атомарно «гасит» токен. True — если токен ещё не был использован (первый раз)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        row = await conn.fetchval(
+            """
+            INSERT INTO link_tokens (token, used_by) VALUES ($1, $2)
+            ON CONFLICT (token) DO NOTHING
+            RETURNING token
+            """,
+            token,
+            telegram_id,
+        )
+    return row is not None
 
 
 async def get_user(telegram_id: int):

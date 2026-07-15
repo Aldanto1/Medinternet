@@ -47,8 +47,9 @@ async def main():
     dp.include_router(router)
 
     # Поднимаем веб-сервер mini app (в том же процессе), передаём бота
-    # для уведомлений после регистрации
-    runner = await start_webserver(bot)
+    # для уведомлений после регистрации и его username для deep-link страницы
+    me = await bot.get_me()
+    runner = await start_webserver(bot, me.username)
 
     # Настраиваем кнопку меню на открытие mini app.
     # Ошибка здесь (например, неверный URL) не должна ронять весь бот.
