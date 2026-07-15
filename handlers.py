@@ -19,6 +19,8 @@ from config import WEBAPP_URL, webapp_url
 router = Router()
 
 SITE_URL = "https://medinternet.ru/"
+SUPPORT_URL = "https://t.me/traderx_p2p"
+AGREEMENT_URL = "https://medinternet.ru/"
 LOGO_PATH = Path(__file__).resolve().parent / "webapp" / "logo.png"
 # Кэш file_id логотипа: первую отправку грузим файлом, дальше — по id (без повторной загрузки).
 _logo_file_id: str | None = None
@@ -37,14 +39,10 @@ def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
 
 
 _ABOUT = (
-    f'Я — бот <a href="{SITE_URL}"><b>Мединтернет</b></a> с медицинским поисковиком: '
-    "это ИИ, созданный специально для врачей и работников аптек "
-    "(совместно с Сеченовским Университетом).\n\n"
-    "<b>Что умеет медицинский поисковик:</b>\n"
-    "• отвечает на вопросы о препаратах, болезнях и схемах лечения;\n"
-    "• ищет по классификациям МКБ-10 и АТХ;\n"
-    "• анализирует научные исследования и клинические случаи;\n"
-    "• даёт структурированные ответы со ссылками на проверенные источники."
+    f'Я — бот <a href="{SITE_URL}"><b>Мединтернет</b></a>, медицинский ИИ-поисковик '
+    "для врачей и фармацевтов (совместно с Сеченовским Университетом).\n\n"
+    "Отвечаю на вопросы о препаратах, болезнях и схемах лечения, "
+    "ищу по МКБ-10 и АТХ, даю ответы со ссылками на источники."
 )
 
 _PARTNERS_TEXT = (
@@ -73,6 +71,23 @@ _INSTRUCTION_TEXT = (
     "«У пациента ХБП 3 стадии, как это влияет?», «Какие исключения при беременности?».\n\n"
     "<b>6. Проверяйте противоречия</b>\n"
     "Если ответ вызывает сомнения: «Это противоречит данным ABCD-2023. Объясните расхождение?»"
+)
+
+_HELP_TEXT = (
+    "🙋 <b>Помощь</b>\n\n"
+    "Помогите нам стать лучше и найдите ответы на свои вопросы.\n\n"
+    "Оставьте отзыв, напишите в поддержку или ознакомьтесь "
+    "с пользовательским соглашением."
+)
+
+_TARIFF_TEXT = (
+    "💳 <b>Ваш тариф: Обычный</b>\n\n"
+    "Сейчас вам доступен базовый доступ к медицинскому поисковику.\n\n"
+    "<b>Тариф Плюс:</b>\n"
+    "• больше запросов к поисковику;\n"
+    "• приоритетная обработка вопросов;\n"
+    "• ранний доступ к новым возможностям.\n\n"
+    "Выберите период подписки:"
 )
 
 
@@ -111,6 +126,30 @@ def _partners_keyboard(bot_username: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="📨 Отправить в Telegram", url=tg_share)],
             [InlineKeyboardButton(text="💬 Отправить в WhatsApp", url=wa_share)],
+            [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")],
+        ]
+    )
+
+
+def _help_keyboard() -> InlineKeyboardMarkup:
+    """Кнопки раздела «Помощь»."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✍️ Оставить отзыв", callback_data="help:feedback")],
+            [InlineKeyboardButton(text="💬 Написать в поддержку", url=SUPPORT_URL)],
+            [InlineKeyboardButton(text="📄 Пользовательское соглашение", url=AGREEMENT_URL)],
+            [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")],
+        ]
+    )
+
+
+def _tariff_keyboard() -> InlineKeyboardMarkup:
+    """Кнопки раздела «Мой тариф»."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⭐ Плюс на неделю", callback_data="tariff:week")],
+            [InlineKeyboardButton(text="⭐ Плюс на месяц", callback_data="tariff:month")],
+            [InlineKeyboardButton(text="⭐ Плюс на год", callback_data="tariff:year")],
             [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")],
         ]
     )
@@ -216,10 +255,26 @@ async def cb_instruction(callback: CallbackQuery):
     await callback.message.answer(_INSTRUCTION_TEXT, reply_markup=_back_keyboard())
 
 
-@router.callback_query(F.data.in_({"nav:tariff", "nav:help"}))
-async def cb_stub(callback: CallbackQuery):
-    """Заглушки для разделов, которые опишем позже."""
-    await callback.answer("Раздел скоро появится 🔧", show_alert=True)
+@router.callback_query(F.data == "nav:help")
+async def cb_help(callback: CallbackQuery):
+    """Раздел «Помощь»: отзыв, поддержка, соглашение."""
+    await callback.answer()
+    await _safe_delete(callback.message)
+    await callback.message.answer(_HELP_TEXT, reply_markup=_help_keyboard())
+
+
+@router.callback_query(F.data == "nav:tariff")
+async def cb_tariff(callback: CallbackQuery):
+    """Раздел «Мой тариф»: текущий тариф и подписки Плюс."""
+    await callback.answer()
+    await _safe_delete(callback.message)
+    await callback.message.answer(_TARIFF_TEXT, reply_markup=_tariff_keyboard())
+
+
+@router.callback_query(F.data.in_({"tariff:week", "tariff:month", "tariff:year", "help:feedback"}))
+async def cb_soon(callback: CallbackQuery):
+    """Заглушки для кнопок, детали которых опишем позже (цены, форма отзыва)."""
+    await callback.answer("Скоро будет доступно 🔧", show_alert=True)
 
 
 @router.message(Command("help"))
