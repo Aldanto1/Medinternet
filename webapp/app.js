@@ -215,12 +215,12 @@ async function sendChat() {
     addBubble("user", text);
     const typing = addTyping();
 
-    let bubble = null;      // пузырь ответа (создаётся при первом тексте)
-    let fullText = "";      // весь полученный от сервера текст
-    let shown = 0;          // сколько символов уже показано (для плавной печати)
+    let bubble = null;       // пузырь ответа (создаётся при первом тексте)
+    let pending = "";        // незавершённая строка (копится, пока не придёт \n)
+    const lineQueue = [];    // готовые строки, ждущие плавного появления
     let gotText = false;
     let streamDone = false;
-    let rafId = null;
+    let animating = false;
 
     function ensureBubble() {
         if (!bubble) {
@@ -235,25 +235,38 @@ async function sendChat() {
         els.chatSend.disabled = false;
     }
 
-    // Плавная печать: раскрываем текст постепенно, с «догоном» (чем больше
-    // накопилось непоказанного — тем быстрее), чтобы даже пришедший пачкой
-    // ответ печатался ровно, а не появлялся весь сразу.
-    function animate() {
-        const remaining = fullText.length - shown;
-        if (remaining > 0) {
-            const step = Math.max(2, Math.min(7, Math.ceil(remaining / 22)));
-            shown = Math.min(fullText.length, shown + step);
-            bubble.innerHTML = mdToHtml(fullText.slice(0, shown));
-            scrollToBottom();
+    // Копим стрим и выделяем завершённые строки (по \n) — как на сайте.
+    function enqueue(chunk) {
+        pending += chunk;
+        let i;
+        while ((i = pending.indexOf("\n")) !== -1) {
+            const ln = pending.slice(0, i);
+            pending = pending.slice(i + 1);
+            if (ln.trim()) lineQueue.push(ln);
         }
-        if (!streamDone || shown < fullText.length) {
-            rafId = requestAnimationFrame(animate);
-        } else {
-            rafId = null;
-            finish();
-        }
+        pump();
     }
-    function startAnim() { if (rafId == null) rafId = requestAnimationFrame(animate); }
+
+    // Появление ПО СТРОЧНО: строка мягко проявляется (CSS .ai-line), потом
+    // следующая. При большой очереди (ответ пришёл пачкой) — быстрее, но всё
+    // равно строка за строкой, а не всё разом.
+    function pump() {
+        if (animating) return;
+        if (!lineQueue.length) {
+            if (streamDone) finish();
+            return;
+        }
+        animating = true;
+        ensureBubble();
+        const ln = lineQueue.shift();
+        const el = document.createElement("div");
+        el.className = "ai-line";
+        el.innerHTML = mdToHtml(ln);
+        bubble.appendChild(el);
+        scrollToBottom();
+        const delay = Math.max(80, 300 - lineQueue.length * 24);
+        setTimeout(() => { animating = false; pump(); }, delay);
+    }
 
     try {
         const res = await fetch("/api/ai/message/stream", {
@@ -274,19 +287,17 @@ async function sendChat() {
             buf += decoder.decode(value, { stream: true });
             let i;
             while ((i = buf.indexOf("\n\n")) !== -1) {
-                const line = buf.slice(0, i).trim();
+                const evt = buf.slice(0, i).trim();
                 buf = buf.slice(i + 2);
-                if (!line.startsWith("data:")) continue;
+                if (!evt.startsWith("data:")) continue;
                 let obj;
-                try { obj = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+                try { obj = JSON.parse(evt.slice(5).trim()); } catch (e) { continue; }
                 if (obj.kind === "action" && !bubble) {
                     setStatus(typing, obj.value);
                     scrollToBottom();
                 } else if (obj.kind === "text") {
                     gotText = true;
-                    ensureBubble();
-                    fullText += obj.value;
-                    startAnim();
+                    enqueue(obj.value);
                 } else if (obj.kind === "error") {
                     if (!bubble) typing.remove();
                     addBubble("error", obj.value);
@@ -299,7 +310,9 @@ async function sendChat() {
     } finally {
         streamDone = true;
         if (gotText) {
-            startAnim();      // дорисовать остаток, затем finish()
+            if (pending.trim()) lineQueue.push(pending);   // остаток — последняя строка
+            pending = "";
+            pump();
         } else {
             typing.remove();
             finish();
