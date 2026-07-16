@@ -26,18 +26,6 @@ LOGO_PATH = Path(__file__).resolve().parent / "webapp" / "logo.png"
 _logo_file_id: str | None = None
 
 
-def _miniapp_keyboard() -> InlineKeyboardMarkup | None:
-    """Кнопка открытия mini app (если задан WEBAPP_URL)."""
-    url = webapp_url()
-    if not url:
-        return None
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Mini App", web_app=WebAppInfo(url=url))]
-        ]
-    )
-
-
 _ABOUT = (
     f'Я — бот <a href="{SITE_URL}"><b>Мединтернет</b></a>, медицинский ИИ-поисковик '
     "для врачей и фармацевтов (совместно с Сеченовским Университетом).\n\n"
@@ -92,19 +80,35 @@ _TARIFF_TEXT = (
 
 
 def _main_keyboard() -> InlineKeyboardMarkup:
-    """Навигация под главным сообщением."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🤝 Партнёрам", callback_data="nav:partners"),
-                InlineKeyboardButton(text="💳 Мой тариф", callback_data="nav:tariff"),
-            ],
-            [
-                InlineKeyboardButton(text="📖 Инструкция", callback_data="nav:instruction"),
-                InlineKeyboardButton(text="❓ Помощь", callback_data="nav:help"),
-            ],
-        ]
-    )
+    """Навигация под главным сообщением + большая кнопка открытия Mini App."""
+    rows = [
+        [
+            InlineKeyboardButton(text="🤝 Партнёрам", callback_data="nav:partners"),
+            InlineKeyboardButton(text="💳 Мой тариф", callback_data="nav:tariff"),
+        ],
+        [
+            InlineKeyboardButton(text="📖 Инструкция", callback_data="nav:instruction"),
+            InlineKeyboardButton(text="❓ Помощь", callback_data="nav:help"),
+        ],
+    ]
+    url = webapp_url()
+    if url:
+        rows.append(
+            [InlineKeyboardButton(text="🔍 Открыть Mini App", web_app=WebAppInfo(url=url))]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _registered_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура сообщения об успешной регистрации: Mini App + Главная."""
+    rows = []
+    url = webapp_url()
+    if url:
+        rows.append(
+            [InlineKeyboardButton(text="🔍 Открыть Mini App", web_app=WebAppInfo(url=url))]
+        )
+    rows.append([InlineKeyboardButton(text="🏠 Главная", callback_data="nav:home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _back_keyboard() -> InlineKeyboardMarkup:
@@ -164,10 +168,7 @@ async def _main_caption(user, user_id: int) -> str:
             "кнопку меню слева от поля ввода."
         )
     else:
-        tail = (
-            "\n\nЧтобы получить доступ, зайдите в свой личный кабинет на "
-            "<b>Мединтернет</b> и перейдите по ссылке для регистрации в Telegram."
-        )
+        tail = "\n\nДля регистрации следуйте инструкции в мини-аппе."
     return greeting + _ABOUT + tail
 
 
@@ -203,12 +204,10 @@ async def cmd_start(message: Message, command: CommandObject):
 async def _register_via_link(message: Message, token: str) -> None:
     """Регистрация по одноразовой подписанной ссылке из личного кабинета."""
     user_id = message.from_user.id
-    kb = _miniapp_keyboard()
 
     if await db.user_exists(user_id):
         await message.answer(
-            "Вы уже зарегистрированы ✅\nОткройте <b>Mini App</b>, чтобы начать.",
-            reply_markup=kb,
+            "Вы уже зарегистрированы ✅", reply_markup=_registered_keyboard()
         )
         return
 
@@ -223,9 +222,7 @@ async def _register_via_link(message: Message, token: str) -> None:
         user_id, message.from_user.username, message.from_user.full_name
     )
     await message.answer(
-        "🎉 <b>Регистрация успешна!</b>\n"
-        "Все функции доступны. Откройте <b>Mini App</b>, чтобы начать работу.",
-        reply_markup=kb,
+        "🎉 <b>Регистрация успешна</b>", reply_markup=_registered_keyboard()
     )
 
 

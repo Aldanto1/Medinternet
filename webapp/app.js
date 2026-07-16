@@ -103,7 +103,7 @@ async function init() {
 
 // ---------- Регистрация: переход на сайт ----------
 
-let pendingReg = false;   // ждём регистрацию после ухода на страницу /link
+let pendingReg = false;   // ушли на страницу /link для регистрации
 
 function openSite() {
     pendingReg = true;
@@ -111,32 +111,18 @@ function openSite() {
     if (tg?.openLink) tg.openLink(url); else window.open(url, "_blank");
 }
 
-// Когда пользователь возвращается в мини-апп после регистрации на сайте/в чате —
-// проверяем статус и, если уже зарегистрирован, сразу открываем рабочий экран
-// (не оставляем «висеть» экран регистрации).
-async function recheckRegistration() {
-    if (!pendingReg || state.registered) return;
-    // Показываем загрузку, пока проверяем статус — без резкого перехода
-    showScreen("loading");
-    try {
-        const me = await api("/api/me");
-        if (me.registered) {
-            pendingReg = false;
-            state.registered = true;
-            state.aiEnabled = !!me.ai_enabled;
-            state.user = me.user || null;
-            openApp();
-            return;
-        }
-    } catch (e) { /* игнор */ }
-    // Ещё не зарегистрирован (или ошибка) — возвращаем экран регистрации
-    showScreen("register");
+// После ухода на страницу регистрации мини-апп больше не нужен: как только он
+// уходит в фон (открылся браузер/чат) — закрываем его. Пользователь откроет заново.
+function closeAfterSiteVisit() {
+    if (!pendingReg) return;
+    pendingReg = false;
+    tg?.close?.();
 }
 
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") recheckRegistration();
+    if (document.hidden) closeAfterSiteVisit();
 });
-tg?.onEvent?.("activated", recheckRegistration);
+window.addEventListener("blur", closeAfterSiteVisit);
 
 // ---------- Личный кабинет ----------
 
