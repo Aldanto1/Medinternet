@@ -122,6 +122,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
     transition: background .15s;
 }
 .icon-round:active { background: var(--surface); }
+.btn-newchat {
+    height: 38px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-pill);
+    background: var(--card); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; display: inline-flex; align-items: center; white-space: nowrap;
+    transition: background .15s;
+}
+.btn-newchat:active { background: var(--surface); }
 
 /* ---------- Чат ---------- */
 .messages {

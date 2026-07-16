@@ -21,6 +21,7 @@ const els = {
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
+    chatReset: document.getElementById("chat-reset"),
 };
 
 let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
@@ -115,6 +116,8 @@ function openSite() {
 // (не оставляем «висеть» экран регистрации).
 async function recheckRegistration() {
     if (!pendingReg || state.registered) return;
+    // Показываем загрузку, пока проверяем статус — без резкого перехода
+    showScreen("loading");
     try {
         const me = await api("/api/me");
         if (me.registered) {
@@ -123,8 +126,11 @@ async function recheckRegistration() {
             state.aiEnabled = !!me.ai_enabled;
             state.user = me.user || null;
             openApp();
+            return;
         }
-    } catch (e) { /* игнор — останемся на экране регистрации */ }
+    } catch (e) { /* игнор */ }
+    // Ещё не зарегистрирован (или ошибка) — возвращаем экран регистрации
+    showScreen("register");
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -276,6 +282,14 @@ async function sendChat() {
     }
 }
 
+async function resetChat() {
+    if (sending) return;
+    try { await api("/api/ai/reset"); } catch (e) { /* не критично */ }
+    els.messages.innerHTML = "";
+    greetChat();
+    tg?.HapticFeedback?.impactOccurred("light");
+}
+
 function autoGrow() {
     const box = els.chatInput;
     box.style.height = "auto";
@@ -303,6 +317,7 @@ function logout() {
 els.siteLink.addEventListener("click", (e) => { e.preventDefault(); openSite(); });
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
+els.chatReset.addEventListener("click", resetChat);
 els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
