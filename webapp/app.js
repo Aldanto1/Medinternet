@@ -241,7 +241,7 @@ async function sendChat() {
     function animate() {
         const remaining = fullText.length - shown;
         if (remaining > 0) {
-            const step = Math.max(2, Math.min(16, Math.ceil(remaining / 12)));
+            const step = Math.max(2, Math.min(7, Math.ceil(remaining / 22)));
             shown = Math.min(fullText.length, shown + step);
             bubble.innerHTML = mdToHtml(fullText.slice(0, shown));
             scrollToBottom();
