@@ -214,7 +214,46 @@ async function sendChat() {
     autoGrow();
     addBubble("user", text);
     const typing = addTyping();
-    let bubble = null, acc = "";
+
+    let bubble = null;      // пузырь ответа (создаётся при первом тексте)
+    let fullText = "";      // весь полученный от сервера текст
+    let shown = 0;          // сколько символов уже показано (для плавной печати)
+    let gotText = false;
+    let streamDone = false;
+    let rafId = null;
+
+    function ensureBubble() {
+        if (!bubble) {
+            typing.remove();
+            bubble = addBubble("ai", "");
+            bubble.style.whiteSpace = "normal";
+        }
+    }
+
+    function finish() {
+        sending = false;
+        els.chatSend.disabled = false;
+    }
+
+    // Плавная печать: раскрываем текст постепенно, с «догоном» (чем больше
+    // накопилось непоказанного — тем быстрее), чтобы даже пришедший пачкой
+    // ответ печатался ровно, а не появлялся весь сразу.
+    function animate() {
+        const remaining = fullText.length - shown;
+        if (remaining > 0) {
+            const step = Math.max(2, Math.min(16, Math.ceil(remaining / 12)));
+            shown = Math.min(fullText.length, shown + step);
+            bubble.innerHTML = mdToHtml(fullText.slice(0, shown));
+            scrollToBottom();
+        }
+        if (!streamDone || shown < fullText.length) {
+            rafId = requestAnimationFrame(animate);
+        } else {
+            rafId = null;
+            finish();
+        }
+    }
+    function startAnim() { if (rafId == null) rafId = requestAnimationFrame(animate); }
 
     try {
         const res = await fetch("/api/ai/message/stream", {
@@ -244,27 +283,27 @@ async function sendChat() {
                     setStatus(typing, obj.value);
                     scrollToBottom();
                 } else if (obj.kind === "text") {
-                    if (!bubble) {
-                        typing.remove();
-                        bubble = addBubble("ai", "");
-                        bubble.style.whiteSpace = "normal";
-                    }
-                    acc += obj.value;
-                    bubble.innerHTML = mdToHtml(acc);
-                    scrollToBottom();
+                    gotText = true;
+                    ensureBubble();
+                    fullText += obj.value;
+                    startAnim();
                 } else if (obj.kind === "error") {
                     if (!bubble) typing.remove();
                     addBubble("error", obj.value);
                 }
             }
         }
-        if (!bubble && !acc) typing.remove();
     } catch (e) {
         typing.remove();
-        if (!acc) addBubble("error", e.message || T.errGeneric);
+        if (!gotText) addBubble("error", e.message || T.errGeneric);
     } finally {
-        sending = false;
-        els.chatSend.disabled = false;
+        streamDone = true;
+        if (gotText) {
+            startAnim();      // дорисовать остаток, затем finish()
+        } else {
+            typing.remove();
+            finish();
+        }
     }
 }
 
