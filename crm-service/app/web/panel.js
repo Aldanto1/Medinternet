@@ -210,27 +210,15 @@ function fmtDateTime(iso) {
     return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function fmtDate(iso) {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    if (isNaN(d)) return iso;
-    const p = (n) => String(n).padStart(2, "0");
-    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
-}
-
 function detailRows(u) {
     return [
         ["Telegram ID", u.telegram_id],
         ["Имя", u.full_name || "—"],
         ["Ник", u.username ? "@" + u.username : "—"],
-        ["Дата регистрации", fmtDateTime(u.created_at)],
-        ["Обновлён", fmtDateTime(u.updated_at)],
         ["MedinternetID", u.med_id != null ? u.med_id : "—"],
-        ["Специальность", u.specialty || "—"],
-        ["Должность", u.position || "—"],
-        ["Телефон", u.phone || "—"],
-        ["Email", u.email || "—"],
-        ["Дата рождения", fmtDate(u.birth_date)],
+        ["Дата регистрации", fmtDateTime(u.created_at)],
+        ["Последнее действие в боте", fmtDateTime(u.last_bot_action_at)],
+        ["Последний запрос в поисковике", fmtDateTime(u.last_search_at)],
         ["Заблокировал бота", u.blocked ? "Да" : "Нет"],
     ];
 }

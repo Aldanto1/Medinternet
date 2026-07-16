@@ -203,8 +203,8 @@ async def get_user(telegram_id: int) -> dict | None:
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT telegram_id, username, full_name, med_id, specialty, position, "
-            "phone, email, birth_date, created_at, updated_at "
+            "SELECT telegram_id, username, full_name, med_id, "
+            "created_at, last_bot_action_at, last_search_at "
             "FROM public.users WHERE telegram_id = $1",
             telegram_id,
         )
@@ -215,7 +215,7 @@ async def get_user(telegram_id: int) -> dict | None:
         )
     data = dict(row)
     # Даты/время — в ISO-строки для JSON
-    for key in ("birth_date", "created_at", "updated_at"):
+    for key in ("created_at", "last_bot_action_at", "last_search_at"):
         if data.get(key) is not None:
             data[key] = data[key].isoformat()
     data["blocked"] = blocked is not None

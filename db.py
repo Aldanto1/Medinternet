@@ -45,6 +45,9 @@ async def init() -> None:
         # Профиль (заполняется позже из БД medinternet)
         await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty TEXT")
         await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT")
+        # Активность: последнее действие в боте и последний запрос в поисковике
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_bot_action_at TIMESTAMPTZ")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_search_at TIMESTAMPTZ")
         # Одноразовые токены deep-link регистрации
         await conn.execute(
             """
@@ -118,16 +121,38 @@ async def register_user(
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO users (telegram_id, username, full_name)
-            VALUES ($1, $2, $3)
+            INSERT INTO users (telegram_id, username, full_name, last_bot_action_at)
+            VALUES ($1, $2, $3, now())
             ON CONFLICT (telegram_id) DO UPDATE SET
-                username   = EXCLUDED.username,
-                full_name  = EXCLUDED.full_name,
-                updated_at = now()
+                username           = EXCLUDED.username,
+                full_name          = EXCLUDED.full_name,
+                last_bot_action_at = now(),
+                updated_at         = now()
             """,
             telegram_id,
             username,
             full_name,
+        )
+
+
+async def touch_bot_action(telegram_id: int) -> None:
+    """Отмечает время последнего действия пользователя в боте (для аналитики в CRM)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET last_bot_action_at = now() WHERE telegram_id = $1",
+            telegram_id,
+        )
+
+
+async def touch_search(telegram_id: int) -> None:
+    """Отмечает время последнего запроса в поисковике (и заодно действия в боте)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET last_search_at = now(), last_bot_action_at = now() "
+            "WHERE telegram_id = $1",
+            telegram_id,
         )
 
 

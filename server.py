@@ -161,6 +161,7 @@ async def handle_me(request: web.Request) -> web.Response:
     if err is not None:
         return err
 
+    await db.touch_bot_action(tg_user["id"])  # открытие Mini App — тоже действие в боте
     row = await db.get_user(tg_user["id"])
     profile = None
     if row is not None:
@@ -197,6 +198,7 @@ async def handle_ai_message(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
 
     tg_id = tg_user["id"]
+    await db.touch_search(tg_id)  # запрос в медицинском поисковике
     try:
         chat_id = await db.get_ai_chat_id(tg_id)
         if not chat_id:
@@ -235,6 +237,7 @@ async def handle_ai_stream(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
 
     tg_id = tg_user["id"]
+    await db.touch_search(tg_id)  # запрос в медицинском поисковике
     resp = web.StreamResponse(
         status=200,
         headers={

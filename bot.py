@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import MenuButtonWebApp, WebAppInfo
@@ -29,6 +29,19 @@ BOT_DESCRIPTION = (
 )
 
 
+class ActivityMiddleware(BaseMiddleware):
+    """Отмечает время последнего действия пользователя в боте (любое сообщение/кнопка)."""
+
+    async def __call__(self, handler, event, data):
+        user = getattr(event, "from_user", None)
+        if user is not None:
+            try:
+                await db.touch_bot_action(user.id)
+            except Exception:
+                pass  # аналитика не должна ломать обработку апдейта
+        return await handler(event, data)
+
+
 async def main():
     """Запуск бота."""
     # Проверяем конфигурацию
@@ -52,6 +65,10 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher()
+
+    # Учёт активности: любое сообщение/нажатие кнопки обновляет last_bot_action_at
+    dp.message.outer_middleware(ActivityMiddleware())
+    dp.callback_query.outer_middleware(ActivityMiddleware())
 
     # Подключаем роутер с хэндлерами
     dp.include_router(router)
