@@ -1,4 +1,5 @@
 """Веб-сервер mini app: отдаёт страницу регистрации и принимает данные."""
+import asyncio
 import hashlib
 import hmac
 import json
@@ -242,40 +243,67 @@ async def handle_ai_stream(request: web.Request) -> web.Response:
         status=200,
         headers={
             "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-store",
+            # no-transform — чтобы прокси не сжимал/не буферизовал поток
+            "Cache-Control": "no-cache, no-store, no-transform",
             "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
     )
     await resp.prepare(request)
+    # Ранний флаш: заставляет прокси-край начать отдавать поток сразу
+    await resp.write(b": ok\n\n")
 
     async def emit(obj):
         await resp.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
 
-    async def run(cid):
-        async for kind, value in ai_client.stream_message(cid, message):
-            await emit({"kind": kind, "value": value})
+    # Производитель кладёт события в очередь, а основной цикл шлёт heartbeat в паузах.
+    # Это (а) не даёт прокси буферизовать поток во время долгой генерации ответа,
+    # (б) доставляет каждый кусок текста клиенту сразу, как только он пришёл от API.
+    queue: asyncio.Queue = asyncio.Queue()
 
+    async def feed(cid):
+        async for kind, value in ai_client.stream_message(cid, message):
+            await queue.put(("event", (kind, value)))
+
+    async def producer():
+        try:
+            chat_id = await db.get_ai_chat_id(tg_id)
+            if not chat_id:
+                chat_id = await ai_client.create_session(tg_id)
+                await db.set_ai_chat_id(tg_id, chat_id)
+            try:
+                await feed(chat_id)
+            except ai_client.SessionNotFound:
+                chat_id = await ai_client.create_session(tg_id)
+                await db.set_ai_chat_id(tg_id, chat_id)
+                await feed(chat_id)
+        except ai_client.AIError as e:
+            logger.warning("Ошибка RX Code AI (stream): %s", e)
+            await queue.put(("event", ("error", "Нейросеть недоступна, попробуйте позже")))
+        except Exception as e:
+            logger.warning("Ошибка стрима %s: %s", tg_id, e)
+            await queue.put(("event", ("error", "Что-то пошло не так. Попробуйте позже.")))
+        finally:
+            await queue.put(("end", None))
+
+    task = asyncio.create_task(producer())
     try:
-        chat_id = await db.get_ai_chat_id(tg_id)
-        if not chat_id:
-            chat_id = await ai_client.create_session(tg_id)
-            await db.set_ai_chat_id(tg_id, chat_id)
-        try:
-            await run(chat_id)
-        except ai_client.SessionNotFound:
-            chat_id = await ai_client.create_session(tg_id)
-            await db.set_ai_chat_id(tg_id, chat_id)
-            await run(chat_id)
+        while True:
+            try:
+                typ, payload = await asyncio.wait_for(queue.get(), timeout=2.0)
+            except asyncio.TimeoutError:
+                await resp.write(b": ping\n\n")  # heartbeat, чтобы поток не застаивался
+                continue
+            if typ == "end":
+                break
+            kind, value = payload
+            await emit({"kind": kind, "value": value})
         await emit({"kind": "done"})
-    except ai_client.AIError as e:
-        logger.warning("Ошибка RX Code AI (stream): %s", e)
-        await emit({"kind": "error", "value": "Нейросеть недоступна, попробуйте позже"})
     except Exception as e:
-        logger.warning("Ошибка стрима %s: %s", tg_id, e)
-        try:
-            await emit({"kind": "error", "value": "Что-то пошло не так. Попробуйте позже."})
-        except Exception:
-            pass
+        logger.warning("Ошибка отдачи стрима %s: %s", tg_id, e)
+    finally:
+        if not task.done():
+            task.cancel()
     return resp
 
 
