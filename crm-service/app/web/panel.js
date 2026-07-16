@@ -180,19 +180,91 @@ function renderUserList(users) {
         return;
     }
     users.forEach((u) => {
-        const label = document.createElement("label");
-        label.className = "medid-item";
+        const row = document.createElement("div");
+        row.className = "medid-item";
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.value = u.id;
         cb.dataset.nick = u.nick || "";
         cb.checked = selectedIds.indexOf(Number(u.id)) !== -1;
-        const span = document.createElement("span");
-        span.textContent = u.id + " · " + u.nick;
-        label.appendChild(cb);
-        label.appendChild(span);
-        listEl.appendChild(label);
+        // Клик по тексту — карточка со всей информацией (чекбокс остаётся для выбора)
+        const info = document.createElement("button");
+        info.type = "button";
+        info.className = "user-pick";
+        info.textContent = u.id + " · " + u.nick;
+        info.title = "Показать всю информацию";
+        info.addEventListener("click", () => openUserDetails(u.id));
+        row.appendChild(cb);
+        row.appendChild(info);
+        listEl.appendChild(row);
     });
+}
+
+// ---------- Карточка пользователя (вся информация) ----------
+
+function fmtDateTime(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function fmtDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+function detailRows(u) {
+    return [
+        ["Telegram ID", u.telegram_id],
+        ["Имя", u.full_name || "—"],
+        ["Ник", u.username ? "@" + u.username : "—"],
+        ["Дата регистрации", fmtDateTime(u.created_at)],
+        ["Обновлён", fmtDateTime(u.updated_at)],
+        ["MedinternetID", u.med_id != null ? u.med_id : "—"],
+        ["Специальность", u.specialty || "—"],
+        ["Должность", u.position || "—"],
+        ["Телефон", u.phone || "—"],
+        ["Email", u.email || "—"],
+        ["Дата рождения", fmtDate(u.birth_date)],
+        ["Заблокировал бота", u.blocked ? "Да" : "Нет"],
+    ];
+}
+
+function renderUserDetails(u) {
+    const box = els("user-detail");
+    box.innerHTML = "";
+    detailRows(u).forEach(([label, value]) => {
+        const row = document.createElement("div");
+        row.className = "detail-row";
+        const l = document.createElement("span");
+        l.textContent = label;
+        const v = document.createElement("b");
+        v.textContent = value;
+        row.appendChild(l);
+        row.appendChild(v);
+        box.appendChild(row);
+    });
+}
+
+async function openUserDetails(id) {
+    els("user-detail").innerHTML = '<div class="empty">Загрузка…</div>';
+    els("user-modal").hidden = false;
+    try {
+        const headers = {};
+        if (token) headers["Authorization"] = "Bearer " + token;
+        const res = await fetch("/api/segments/users/" + encodeURIComponent(id), { headers });
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.error || "Ошибка");
+        renderUserDetails(data.user);
+    } catch (e) {
+        els("user-detail").innerHTML = '<div class="empty">Не удалось загрузить</div>';
+    }
 }
 
 function applyUserSelection() {
@@ -425,6 +497,12 @@ els("medid-modal").addEventListener("click", (e) => {
 els("medid-select-all").addEventListener("click", () => setAllChecks(true));
 els("medid-clear-all").addEventListener("click", () => setAllChecks(false));
 els("medid-add-selected").addEventListener("click", applyUserSelection);
+
+// Карточка пользователя
+els("user-modal-close").addEventListener("click", () => { els("user-modal").hidden = true; });
+els("user-modal").addEventListener("click", (e) => {
+    if (e.target === els("user-modal")) els("user-modal").hidden = true; // клик по фону
+});
 
 // Конструктор: меню «Добавить блок»
 els("add-block-btn").addEventListener("click", () => {

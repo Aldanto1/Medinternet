@@ -34,3 +34,15 @@ async def list_users(request: web.Request) -> web.Response:
     else:
         users = await db.list_users(limit=1000)
     return web.json_response({"ok": True, "users": users})
+
+
+async def user_detail(request: web.Request) -> web.Response:
+    """GET /api/segments/users/{id} — вся информация о пользователе."""
+    try:
+        tid = int(request.match_info["id"])
+    except (ValueError, KeyError):
+        return web.json_response({"ok": False, "error": "Неверный ID"}, status=400)
+    user = await db.get_user(tid)
+    if user is None:
+        return web.json_response({"ok": False, "error": "Пользователь не найден"}, status=404)
+    return web.json_response({"ok": True, "user": user})

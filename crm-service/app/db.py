@@ -198,6 +198,30 @@ async def search_users(query: str, limit: int = 15) -> list[dict]:
     return [{"id": r["telegram_id"], "nick": _user_nick(r)} for r in rows]
 
 
+async def get_user(telegram_id: int) -> dict | None:
+    """Полная карточка пользователя (все поля public.users) + признак блокировки."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT telegram_id, username, full_name, med_id, specialty, position, "
+            "phone, email, birth_date, created_at, updated_at "
+            "FROM public.users WHERE telegram_id = $1",
+            telegram_id,
+        )
+        if row is None:
+            return None
+        blocked = await conn.fetchval(
+            "SELECT 1 FROM crm.blocked_users WHERE telegram_id = $1", telegram_id
+        )
+    data = dict(row)
+    # Даты/время — в ISO-строки для JSON
+    for key in ("birth_date", "created_at", "updated_at"):
+        if data.get(key) is not None:
+            data[key] = data[key].isoformat()
+    data["blocked"] = blocked is not None
+    return data
+
+
 async def get_telegram_ids(filters: dict) -> list[int]:
     """Список telegram_id по фильтру (без заблокировавших) — для постановки задач."""
     assert _pool is not None, "db.init() ещё не вызван"

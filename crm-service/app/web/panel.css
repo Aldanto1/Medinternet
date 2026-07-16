@@ -107,8 +107,26 @@ textarea { resize: vertical; }
     border-bottom: 1px solid var(--border); cursor: pointer; font-size: 15px;
 }
 .medid-item:last-child { border-bottom: none; }
-.medid-item input { width: 18px; height: 18px; }
+.medid-item input { width: 18px; height: 18px; flex: 0 0 auto; }
 .modal-list .empty { padding: 16px; color: var(--muted); text-align: center; }
+
+/* Кликабельный текст пользователя в списке — открывает карточку */
+.user-pick {
+    flex: 1 1 auto; text-align: left; background: none; border: none; margin: 0;
+    padding: 0; font: inherit; font-size: 15px; color: var(--text);
+    cursor: pointer; border-radius: 6px;
+}
+.user-pick:hover { color: var(--brand-dark); text-decoration: underline; }
+
+/* Карточка пользователя: строки поле — значение */
+.detail-list { min-height: 0; }
+.detail-row {
+    display: flex; justify-content: space-between; gap: 14px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-row span { color: var(--muted); flex: 0 0 auto; }
+.detail-row b { text-align: right; word-break: break-word; }
 
 .preview { margin: 12px 0 0; font-size: 15px; }
 .preview strong { color: var(--brand); font-size: 20px; }
