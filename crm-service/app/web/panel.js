@@ -64,7 +64,7 @@ function logout() {
     localStorage.removeItem("crm_last_broadcast");
     if (pollTimer) clearInterval(pollTimer);
     els("status-card").hidden = true;
-    selectedMedIds = [];
+    selectedIds = [];
     renderChips();
     hideSuggest();
     blocks = [{ type: "title", text: "" }];
@@ -74,36 +74,42 @@ function logout() {
 
 // ---------- Фильтры ----------
 
-let selectedMedIds = [];   // выбранные MedID (числа)
+let selectedIds = [];      // выбранные Telegram ID (числа)
+const nickById = {};       // id -> ник (для отображения)
 
 function collectFilters() {
     const f = {};
-    if (selectedMedIds.length) f.med_ids = selectedMedIds.slice();
+    if (selectedIds.length) f.tg_ids = selectedIds.slice();
     return f;
 }
 
-// ---------- Мультивыбор получателей по MedID ----------
+// ---------- Мультивыбор получателей (Telegram ID + ник) ----------
 
-function addMedId(id) {
+function addRecipient(id, nick) {
     id = Number(id);
     if (!Number.isFinite(id)) return;
-    if (selectedMedIds.indexOf(id) === -1) selectedMedIds.push(id);
-    selectedMedIds.sort((a, b) => a - b);
+    if (nick) nickById[id] = nick;
+    if (selectedIds.indexOf(id) === -1) selectedIds.push(id);
     renderChips();
+}
+
+function chipLabel(id) {
+    const nick = nickById[id];
+    return nick ? id + " · " + nick : String(id);
 }
 
 function renderChips() {
     const box = els("medid-chips");
     box.innerHTML = "";
-    selectedMedIds.forEach((id) => {
+    selectedIds.forEach((id) => {
         const chip = document.createElement("span");
         chip.className = "chip";
-        chip.textContent = id;
+        chip.textContent = chipLabel(id);
         const x = document.createElement("button");
         x.type = "button";
         x.textContent = "✕";
         x.addEventListener("click", () => {
-            selectedMedIds = selectedMedIds.filter((e) => e !== id);
+            selectedIds = selectedIds.filter((e) => e !== id);
             renderChips();
         });
         chip.appendChild(x);
@@ -116,19 +122,19 @@ function hideSuggest() {
     els("medid-suggest").innerHTML = "";
 }
 
-function renderSuggest(ids) {
+function renderSuggest(users) {
     const box = els("medid-suggest");
     box.innerHTML = "";
-    const list = (ids || []).filter((e) => selectedMedIds.indexOf(Number(e)) === -1);
+    const list = (users || []).filter((u) => selectedIds.indexOf(Number(u.id)) === -1);
     if (!list.length) { hideSuggest(); return; }
-    list.forEach((id) => {
+    list.forEach((u) => {
         const d = document.createElement("div");
-        d.textContent = id;
+        d.textContent = u.id + " · " + u.nick;
         d.addEventListener("mousedown", (ev) => {
             ev.preventDefault();
-            addMedId(id);
+            addRecipient(u.id, u.nick);
             const q = els("medid-input").value.trim();
-            if (q) searchMedIds(q); else hideSuggest();
+            if (q) searchUsers(q); else hideSuggest();
             els("medid-input").focus();
         });
         box.appendChild(d);
@@ -136,60 +142,61 @@ function renderSuggest(ids) {
     box.hidden = false;
 }
 
-async function searchMedIds(q) {
+async function searchUsers(q) {
     try {
         const headers = {};
         if (token) headers["Authorization"] = "Bearer " + token;
-        const res = await fetch("/api/segments/med-ids?q=" + encodeURIComponent(q), { headers });
+        const res = await fetch("/api/segments/users?q=" + encodeURIComponent(q), { headers });
         if (res.status === 401) { logout(); return; }
         const data = await res.json().catch(() => ({}));
-        renderSuggest(data.med_ids);
+        renderSuggest(data.users);
     } catch (e) {
         hideSuggest();
     }
 }
 
-// ---------- Модалка: список всех MedID ----------
+// ---------- Модалка: список всех пользователей ----------
 
-async function openMedidList() {
+async function openUserList() {
     els("medid-list").innerHTML = '<div class="empty">Загрузка…</div>';
     els("medid-modal").hidden = false;
     try {
         const headers = {};
         if (token) headers["Authorization"] = "Bearer " + token;
-        const res = await fetch("/api/segments/med-ids", { headers });
+        const res = await fetch("/api/segments/users", { headers });
         if (res.status === 401) { logout(); return; }
         const data = await res.json().catch(() => ({}));
-        renderMedidList(data.med_ids || []);
+        renderUserList(data.users || []);
     } catch (e) {
         els("medid-list").innerHTML = '<div class="empty">Не удалось загрузить</div>';
     }
 }
 
-function renderMedidList(ids) {
+function renderUserList(users) {
     const listEl = els("medid-list");
     listEl.innerHTML = "";
-    if (!ids.length) {
+    if (!users.length) {
         listEl.innerHTML = '<div class="empty">Пока нет зарегистрированных</div>';
         return;
     }
-    ids.forEach((id) => {
+    users.forEach((u) => {
         const label = document.createElement("label");
         label.className = "medid-item";
         const cb = document.createElement("input");
         cb.type = "checkbox";
-        cb.value = id;
-        cb.checked = selectedMedIds.indexOf(Number(id)) !== -1;
+        cb.value = u.id;
+        cb.dataset.nick = u.nick || "";
+        cb.checked = selectedIds.indexOf(Number(u.id)) !== -1;
         const span = document.createElement("span");
-        span.textContent = id;
+        span.textContent = u.id + " · " + u.nick;
         label.appendChild(cb);
         label.appendChild(span);
         listEl.appendChild(label);
     });
 }
 
-function applyMedidSelection() {
-    els("medid-list").querySelectorAll("input:checked").forEach((cb) => addMedId(cb.value));
+function applyUserSelection() {
+    els("medid-list").querySelectorAll("input:checked").forEach((cb) => addRecipient(cb.value, cb.dataset.nick));
     els("medid-modal").hidden = true;
 }
 
@@ -387,38 +394,37 @@ els("file-clear").addEventListener("click", () => {
     els("file-clear").hidden = true;
 });
 
-// Автодополнение MedID (только цифры)
+// Автодополнение получателей (по Telegram ID или нику)
 let medidTimer = null;
 els("medid-input").addEventListener("input", () => {
-    const cleaned = els("medid-input").value.replace(/\D/g, "");
-    if (cleaned !== els("medid-input").value) els("medid-input").value = cleaned;
+    const q = els("medid-input").value.trim();
     clearTimeout(medidTimer);
-    if (cleaned.length < 1) { hideSuggest(); return; }
-    medidTimer = setTimeout(() => searchMedIds(cleaned), 250);
+    if (q.length < 1) { hideSuggest(); return; }
+    medidTimer = setTimeout(() => searchUsers(q), 250);
 });
 els("medid-input").addEventListener("blur", () => setTimeout(hideSuggest, 150));
 els("medid-input").addEventListener("focus", () => {
     const q = els("medid-input").value.trim();
-    if (q) searchMedIds(q);
+    if (q) searchUsers(q);
 });
-// Enter в поле MedID — добавить введённый id
+// Enter в поле — добавить введённый Telegram ID (если это число)
 els("medid-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
         e.preventDefault();
         const v = els("medid-input").value.trim();
-        if (v) { addMedId(v); els("medid-input").value = ""; hideSuggest(); }
+        if (v && /^\d+$/.test(v)) { addRecipient(v); els("medid-input").value = ""; hideSuggest(); }
     }
 });
 
-// Модалка со списком всех MedID
-els("medid-list-btn").addEventListener("click", openMedidList);
+// Модалка со списком всех пользователей
+els("medid-list-btn").addEventListener("click", openUserList);
 els("medid-modal-close").addEventListener("click", () => { els("medid-modal").hidden = true; });
 els("medid-modal").addEventListener("click", (e) => {
     if (e.target === els("medid-modal")) els("medid-modal").hidden = true; // клик по фону
 });
 els("medid-select-all").addEventListener("click", () => setAllChecks(true));
 els("medid-clear-all").addEventListener("click", () => setAllChecks(false));
-els("medid-add-selected").addEventListener("click", applyMedidSelection);
+els("medid-add-selected").addEventListener("click", applyUserSelection);
 
 // Конструктор: меню «Добавить блок»
 els("add-block-btn").addEventListener("click", () => {

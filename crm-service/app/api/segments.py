@@ -23,3 +23,14 @@ async def suggest_med_ids(request: web.Request) -> web.Response:
     else:
         med_ids = await db.list_med_ids(limit=1000)
     return web.json_response({"ok": True, "med_ids": med_ids})
+
+
+async def list_users(request: web.Request) -> web.Response:
+    """GET /api/segments/users — все получатели (id + ник);
+    с ?q=… — подсказки по Telegram ID или нику."""
+    query = (request.query.get("q") or "").strip()
+    if query:
+        users = await db.search_users(query, limit=15)
+    else:
+        users = await db.list_users(limit=1000)
+    return web.json_response({"ok": True, "users": users})

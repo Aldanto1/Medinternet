@@ -78,7 +78,7 @@ def build_where(filters: dict) -> tuple[str, list]:
     if filters.get("has_phone") is False:
         clauses.append("(phone IS NULL OR phone = '')")
 
-    # Конкретные получатели по MedID (мультивыбор)
+    # Конкретные получатели по MedID (мультивыбор, legacy)
     med_ids = filters.get("med_ids")
     if med_ids:
         ids = []
@@ -90,8 +90,32 @@ def build_where(filters: dict) -> tuple[str, list]:
         if ids:
             clauses.append(f"med_id = ANY({ph(ids)})")
 
+    # Конкретные получатели по Telegram ID (мультивыбор) —
+    # основной способ адресной рассылки для deep-link регистрации.
+    tg_ids = filters.get("tg_ids")
+    if tg_ids:
+        ids = []
+        for t in tg_ids:
+            try:
+                ids.append(int(t))
+            except (ValueError, TypeError):
+                pass
+        if ids:
+            clauses.append(f"telegram_id = ANY({ph(ids)})")
+
     where = " AND ".join(clauses) if clauses else "TRUE"
     return where, params
+
+
+def _user_nick(row) -> str:
+    """Ник для списка получателей: имя из Telegram, иначе @username, иначе «—»."""
+    full_name = (row["full_name"] or "").strip()
+    if full_name:
+        return full_name
+    username = (row["username"] or "").strip()
+    if username:
+        return "@" + username
+    return "—"
 
 
 # Исключаем тех, кто заблокировал бота (им отправка невозможна)
@@ -136,6 +160,42 @@ async def list_med_ids(limit: int = 1000) -> list[int]:
             limit,
         )
     return [r["med_id"] for r in rows]
+
+
+async def list_users(limit: int = 1000) -> list[dict]:
+    """Зарегистрированные пользователи для списка получателей: id + ник.
+
+    Новые сверху (по дате регистрации). Ник — имя из Telegram / @username.
+    """
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT telegram_id, username, full_name FROM public.users "
+            "ORDER BY created_at DESC, telegram_id LIMIT $1",
+            limit,
+        )
+    return [{"id": r["telegram_id"], "nick": _user_nick(r)} for r in rows]
+
+
+async def search_users(query: str, limit: int = 15) -> list[dict]:
+    """Подсказки получателей по вводу: совпадение по Telegram ID или нику."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    like = "%" + query + "%"
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT telegram_id, username, full_name FROM public.users
+            WHERE CAST(telegram_id AS TEXT) LIKE $1 || '%'
+               OR username ILIKE $2
+               OR full_name ILIKE $2
+            ORDER BY created_at DESC, telegram_id
+            LIMIT $3
+            """,
+            query,
+            like,
+            limit,
+        )
+    return [{"id": r["telegram_id"], "nick": _user_nick(r)} for r in rows]
 
 
 async def get_telegram_ids(filters: dict) -> list[int]:

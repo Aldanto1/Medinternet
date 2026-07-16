@@ -21,7 +21,6 @@ const els = {
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
-    chatReset: document.getElementById("chat-reset"),
 };
 
 let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
@@ -103,10 +102,35 @@ async function init() {
 
 // ---------- Регистрация: переход на сайт ----------
 
+let pendingReg = false;   // ждём регистрацию после ухода на страницу /link
+
 function openSite() {
+    pendingReg = true;
     const url = window.location.origin + "/link";
     if (tg?.openLink) tg.openLink(url); else window.open(url, "_blank");
 }
+
+// Когда пользователь возвращается в мини-апп после регистрации на сайте/в чате —
+// проверяем статус и, если уже зарегистрирован, сразу открываем рабочий экран
+// (не оставляем «висеть» экран регистрации).
+async function recheckRegistration() {
+    if (!pendingReg || state.registered) return;
+    try {
+        const me = await api("/api/me");
+        if (me.registered) {
+            pendingReg = false;
+            state.registered = true;
+            state.aiEnabled = !!me.ai_enabled;
+            state.user = me.user || null;
+            openApp();
+        }
+    } catch (e) { /* игнор — останемся на экране регистрации */ }
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") recheckRegistration();
+});
+tg?.onEvent?.("activated", recheckRegistration);
 
 // ---------- Личный кабинет ----------
 
@@ -252,14 +276,6 @@ async function sendChat() {
     }
 }
 
-async function resetChat() {
-    if (sending) return;
-    try { await api("/api/ai/reset"); } catch (e) { /* не критично */ }
-    els.messages.innerHTML = "";
-    greetChat();
-    tg?.HapticFeedback?.impactOccurred("light");
-}
-
 function autoGrow() {
     const box = els.chatInput;
     box.style.height = "auto";
@@ -287,7 +303,6 @@ function logout() {
 els.siteLink.addEventListener("click", (e) => { e.preventDefault(); openSite(); });
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
-els.chatReset.addEventListener("click", resetChat);
 els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }

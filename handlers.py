@@ -219,7 +219,9 @@ async def _register_via_link(message: Message, token: str) -> None:
         )
         return
 
-    await db.register_user(user_id, message.from_user.username)
+    await db.register_user(
+        user_id, message.from_user.username, message.from_user.full_name
+    )
     await message.answer(
         "🎉 <b>Регистрация успешна!</b>\n"
         "Все функции доступны. Откройте <b>Mini App</b>, чтобы начать работу.",

@@ -105,20 +105,29 @@ async def upsert_user(telegram_id: int, med_id: int, username: str | None = None
         )
 
 
-async def register_user(telegram_id: int, username: str | None = None) -> None:
-    """Регистрация по deep-link: создаёт запись пользователя (профиль пока пустой)."""
+async def register_user(
+    telegram_id: int, username: str | None = None, full_name: str | None = None
+) -> None:
+    """Регистрация по deep-link: создаёт запись пользователя.
+
+    Сохраняем ник (@username) и отображаемое имя из Telegram (full_name) —
+    их показывает и кабинет мини-аппа, и список получателей в CRM.
+    Специальность/должность заполнятся позже из БД medinternet.
+    """
     assert _pool is not None, "db.init() ещё не вызван"
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO users (telegram_id, username)
-            VALUES ($1, $2)
+            INSERT INTO users (telegram_id, username, full_name)
+            VALUES ($1, $2, $3)
             ON CONFLICT (telegram_id) DO UPDATE SET
                 username   = EXCLUDED.username,
+                full_name  = EXCLUDED.full_name,
                 updated_at = now()
             """,
             telegram_id,
             username,
+            full_name,
         )
 
 
