@@ -366,7 +366,6 @@ document.querySelectorAll(".nav-btn").forEach((b) => {
     b.addEventListener("click", () => switchTab(b.dataset.tab));
 });
 
-document.getElementById("subscription-btn").addEventListener("click", () => comingSoon("Подписка и оплата"));
 document.getElementById("upgrade-btn").addEventListener("click", () => comingSoon("Тариф «Плюс»"));
 document.getElementById("logout-btn").addEventListener("click", logout);
 
