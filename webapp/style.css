@@ -213,6 +213,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
     to   { opacity: 1; transform: none; }
 }
 
+/* Приветствие с иконкой робота слева */
+.greet-row { display: flex; align-items: flex-start; gap: 8px; align-self: flex-start; max-width: 92%; }
+.greet-avatar { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 50%; }
+.greet-row .bubble { max-width: none; }
+
 .typing { display: inline-flex; gap: 4px; align-items: center; }
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); opacity: .5; animation: blink 1.2s infinite both; }
 .typing span:nth-child(2) { animation-delay: .2s; }

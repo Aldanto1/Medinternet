@@ -20,7 +20,7 @@ from config import WEBAPP_URL, webapp_url
 router = Router()
 
 SITE_URL = "https://medinternet.ru/"
-LOGO_PATH = Path(__file__).resolve().parent / "webapp" / "logo.png"
+LOGO_PATH = Path(__file__).resolve().parent / "webapp" / "logo_bot.png"
 # Кэш file_id логотипа: первую отправку грузим файлом, дальше — по id (без повторной загрузки).
 _logo_file_id: str | None = None
 

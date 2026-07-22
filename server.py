@@ -410,6 +410,7 @@ def build_app(bot=None, bot_username: str = "") -> web.Application:
     app.router.add_get("/app.js", _file("app.js"))
     app.router.add_get("/style.css", _file("style.css"))
     app.router.add_get("/logo.png", _file("logo.png"))
+    app.router.add_get("/robot.png", _file("robot.png"))
     app.router.add_post("/api/register", handle_register)
     app.router.add_post("/api/me", handle_me)
     app.router.add_post("/api/ai/message", handle_ai_message)

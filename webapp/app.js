@@ -174,7 +174,18 @@ function hideChips() { setChips([]); }
 
 function greetChat() {
     if (els.messages.querySelector(".bubble")) return;
-    addBubble("ai", state.aiEnabled === false ? T.aiUnavailable : T.greet);
+    // Приветствие с иконкой робота слева
+    const row = document.createElement("div");
+    row.className = "greet-row";
+    const av = document.createElement("img");
+    av.className = "greet-avatar";
+    av.src = "/robot.png";
+    av.alt = "";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble ai";
+    bubble.textContent = state.aiEnabled === false ? T.aiUnavailable : T.greet;
+    row.append(av, bubble);
+    insertMsg(row);
     showStaticChips();
 }
 
