@@ -121,9 +121,9 @@ def _partners_keyboard(bot_username: str) -> InlineKeyboardMarkup:
     )
 
 
-async def _main_caption(user, user_id: int) -> str:
+async def _main_caption(full_name: str, user_id: int) -> str:
     """Подпись главного сообщения (зависит от того, зарегистрирован ли пользователь)."""
-    greeting = f"👋 Здравствуйте, <b>{user.full_name}</b>!\n\n"
+    greeting = f"👋 Здравствуйте, <b>{full_name}</b>!\n\n"
     if await db.user_exists(user_id):
         tail = (
             "\n\n✅ Вы зарегистрированы. Медицинский поисковик доступен через "
@@ -134,14 +134,21 @@ async def _main_caption(user, user_id: int) -> str:
     return greeting + _ABOUT + tail
 
 
-async def _send_main(message: Message, user, user_id: int) -> None:
-    """Отправляет главное сообщение: логотип + приветствие + навигация."""
+async def send_main_message(bot, chat_id: int, full_name: str, user_id: int) -> None:
+    """Отправляет главное сообщение (логотип + приветствие + навигация) в чат.
+
+    Вызывается и из хэндлеров, и с веб-сервера (после выхода из аккаунта)."""
     global _logo_file_id
-    caption = await _main_caption(user, user_id)
+    caption = await _main_caption(full_name, user_id)
     photo = _logo_file_id or FSInputFile(LOGO_PATH)
-    msg = await message.answer_photo(photo, caption=caption, reply_markup=_main_keyboard())
+    msg = await bot.send_photo(chat_id, photo, caption=caption, reply_markup=_main_keyboard())
     if _logo_file_id is None and msg.photo:
         _logo_file_id = msg.photo[-1].file_id
+
+
+async def _send_main(message: Message, user, user_id: int) -> None:
+    """Отправляет главное сообщение в ответ на сообщение пользователя."""
+    await send_main_message(message.bot, message.chat.id, user.full_name, user_id)
 
 
 async def _safe_delete(message: Message) -> None:

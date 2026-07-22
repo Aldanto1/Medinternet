@@ -181,6 +181,14 @@ async def get_user(telegram_id: int):
         )
 
 
+async def delete_user(telegram_id: int) -> None:
+    """Выход из аккаунта: удаляет пользователя и его активную сессию чата."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        await conn.execute("DELETE FROM ai_sessions WHERE telegram_id = $1", telegram_id)
+        await conn.execute("DELETE FROM users WHERE telegram_id = $1", telegram_id)
+
+
 async def user_exists(telegram_id: int) -> bool:
     """True, если пользователь уже прошёл регистрацию."""
     assert _pool is not None, "db.init() ещё не вызван"

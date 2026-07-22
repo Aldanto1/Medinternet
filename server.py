@@ -13,6 +13,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import ai_client
 import db
+import handlers
 import link_token
 from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL, WEBAPP_VERSION, webapp_url
 
@@ -316,6 +317,29 @@ async def handle_ai_reset(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_logout(request: web.Request) -> web.Response:
+    """Выход из аккаунта: удаляет пользователя и шлёт стартовое сообщение
+    для незарегистрированных (при следующем заходе снова экран регистрации)."""
+    tg_user, _body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+    tg_id = tg_user["id"]
+    await db.delete_user(tg_id)
+    logger.info("Пользователь %s вышел из аккаунта", tg_id)
+
+    bot = request.app.get("bot")
+    if bot is not None:
+        full_name = " ".join(
+            p for p in (tg_user.get("first_name"), tg_user.get("last_name")) if p
+        ) or "коллега"
+        try:
+            await handlers.send_main_message(bot, tg_id, full_name, tg_id)
+        except Exception as e:
+            logger.warning("Не удалось отправить стартовое сообщение после выхода %s: %s", tg_id, e)
+
+    return web.json_response({"ok": True})
+
+
 def _file(name: str):
     async def handler(_request: web.Request) -> web.Response:
         resp = web.FileResponse(WEBAPP_DIR / name)
@@ -371,6 +395,7 @@ def build_app(bot=None, bot_username: str = "") -> web.Application:
     app.router.add_post("/api/ai/message", handle_ai_message)
     app.router.add_post("/api/ai/message/stream", handle_ai_stream)
     app.router.add_post("/api/ai/reset", handle_ai_reset)
+    app.router.add_post("/api/logout", handle_logout)
     return app
 
 

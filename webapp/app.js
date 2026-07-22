@@ -453,11 +453,15 @@ function comingSoon(what) {
 }
 
 function logout() {
-    const doClose = () => tg?.close?.();
+    const doLogout = async () => {
+        try { await api("/api/logout"); } catch (e) { /* всё равно выходим */ }
+        try { localStorage.removeItem("mi_history"); } catch (e) { /* игнор */ }
+        tg?.close?.();
+    };
     if (tg?.showConfirm) {
-        tg.showConfirm("Выйти из аккаунта?", (ok) => { if (ok) doClose(); });
+        tg.showConfirm("Выйти из аккаунта?", (ok) => { if (ok) doLogout(); });
     } else if (confirm("Выйти из аккаунта?")) {
-        doClose();
+        doLogout();
     }
 }
 
