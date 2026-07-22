@@ -166,32 +166,39 @@ function fillInput(value) {
     els.chatInput.focus();
 }
 
-function buildChips() {
-    const row = document.createElement("div");
-    row.className = "chips-row";
-    SUGGEST_CHIPS.forEach((c) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "chip-suggest";
-        b.textContent = c.label;
-        b.title = c.label;
-        b.addEventListener("click", () => fillInput(c.fill));
-        row.appendChild(b);
-    });
-    return row;
+function makeChip(item) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip-suggest";
+    b.textContent = item.label;
+    b.title = item.label;
+    b.addEventListener("click", () => fillInput(item.fill));
+    return b;
 }
 
-// Чипсы должны оставаться последним элементом; новые сообщения — перед ними.
-function ensureChips() {
-    if (chipsEl && chipsEl.parentNode === els.messages) return;
-    chipsEl = buildChips();
-    els.messages.appendChild(chipsEl);
+// Чипсы — последний элемент внутри #messages; новые сообщения вставляются перед ними.
+function ensureChipsEl() {
+    if (!chipsEl) {
+        chipsEl = document.createElement("div");
+        chipsEl.className = "chips-row";
+    }
+    if (chipsEl.parentNode !== els.messages) els.messages.appendChild(chipsEl);
 }
+function setChips(items) {
+    ensureChipsEl();
+    chipsEl.innerHTML = "";
+    items.forEach((it) => chipsEl.appendChild(makeChip(it)));
+    chipsEl.hidden = items.length === 0;
+}
+function showStaticChips() { setChips(SUGGEST_CHIPS); }
+// Динамические уточняющие вопросы от нейросети (подставляются целиком в поле).
+function showSuggestChips(list) { setChips(list.map((q) => ({ label: q, fill: q }))); }
+function hideChips() { setChips([]); }
 
 function greetChat() {
     if (els.messages.querySelector(".bubble")) return;
     addBubble("ai", state.aiEnabled === false ? T.aiUnavailable : T.greet);
-    ensureChips();
+    showStaticChips();
 }
 
 function insertMsg(el) {
@@ -306,6 +313,7 @@ async function sendChat() {
     els.chatSend.disabled = true;
     els.chatInput.value = "";
     autoGrow();
+    hideChips();             // прячем подсказки на время запроса
     addBubble("user", text);
     const typing = addTyping();
 
@@ -313,6 +321,7 @@ async function sendChat() {
     let pending = "";        // незавершённая строка (копится, пока не придёт \n)
     const lineQueue = [];    // готовые строки, ждущие плавного появления
     let gotText = false;
+    let gotSuggestions = false;
     let streamDone = false;
     let animating = false;
 
@@ -327,6 +336,8 @@ async function sendChat() {
     function finish() {
         sending = false;
         els.chatSend.disabled = false;
+        // Если нейросеть не прислала уточняющих вопросов — возвращаем статичные подсказки
+        if (!gotSuggestions) showStaticChips();
     }
 
     // Копим стрим и выделяем завершённые строки (по \n) — как на сайте.
@@ -392,6 +403,11 @@ async function sendChat() {
                 } else if (obj.kind === "text") {
                     gotText = true;
                     enqueue(obj.value);
+                } else if (obj.kind === "suggestions") {
+                    if (Array.isArray(obj.value) && obj.value.length) {
+                        gotSuggestions = true;
+                        showSuggestChips(obj.value.slice(0, 3));
+                    }
                 } else if (obj.kind === "error") {
                     if (!bubble) typing.remove();
                     addBubble("error", obj.value);

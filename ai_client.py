@@ -85,8 +85,9 @@ async def stream_message(chat_id: str, message: str):
     """Асинхронный генератор ответа (SSE от RX Code).
 
     Yield'ит кортежи (kind, value):
-      ("action", "Ищу данные…")  — статус обработки
-      ("text",   "кусок ответа")  — часть текста ответа (markdown)
+      ("action", "Ищу данные…")       — статус обработки
+      ("text",   "кусок ответа")       — часть текста ответа (markdown)
+      ("suggestions", ["вопрос", ...]) — уточняющие вопросы (в финальном событии)
     """
     url = f"{NEURO_API_URL}/api/chats/{chat_id}/messages/stream"
     payload = {"Message": message}
@@ -112,3 +113,6 @@ async def stream_message(chat_id: str, message: str):
                     yield ("text", obj["Text"])
                 elif obj.get("Action"):
                     yield ("action", obj["Action"])
+                elif obj.get("Suggestions"):
+                    # Финальное событие: уточняющие вопросы для чипсов-подсказок
+                    yield ("suggestions", obj["Suggestions"])
