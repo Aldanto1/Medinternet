@@ -22,6 +22,10 @@ const els = {
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
     chatReset: document.getElementById("chat-reset"),
+    historyBtn: document.getElementById("history-btn"),
+    historyPanel: document.getElementById("history-panel"),
+    historyList: document.getElementById("history-list"),
+    historyClear: document.getElementById("history-clear"),
 };
 
 let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
@@ -78,7 +82,7 @@ function switchTab(name) {
     document.querySelectorAll(".nav-btn").forEach((b) => {
         b.classList.toggle("active", b.dataset.tab === name);
     });
-    if (name === "search" && els.messages.childElementCount === 0) greetChat();
+    if (name === "search") greetChat();
     if (name === "profile") renderProfile();
 }
 
@@ -147,17 +151,60 @@ function renderProfile() {
 
 // ---------- Чат ----------
 
+// Чипсы-подсказки: показываются последним элементом внутри области сообщений
+// (прокручиваются вместе с диалогом); клик подставляет текст в поле ввода.
+const SUGGEST_CHIPS = [
+    { label: "Клинические рекомендации по…", fill: "Клинические рекомендации по " },
+    { label: "Инструкция по применению…", fill: "Инструкция по применению " },
+    { label: "Схема применения…", fill: "Схема применения " },
+];
+let chipsEl = null;
+
+function fillInput(value) {
+    els.chatInput.value = value;
+    autoGrow();
+    els.chatInput.focus();
+}
+
+function buildChips() {
+    const row = document.createElement("div");
+    row.className = "chips-row";
+    SUGGEST_CHIPS.forEach((c) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip-suggest";
+        b.textContent = c.label;
+        b.title = c.label;
+        b.addEventListener("click", () => fillInput(c.fill));
+        row.appendChild(b);
+    });
+    return row;
+}
+
+// Чипсы должны оставаться последним элементом; новые сообщения — перед ними.
+function ensureChips() {
+    if (chipsEl && chipsEl.parentNode === els.messages) return;
+    chipsEl = buildChips();
+    els.messages.appendChild(chipsEl);
+}
+
 function greetChat() {
-    if (els.messages.childElementCount > 0) return;
+    if (els.messages.querySelector(".bubble")) return;
     addBubble("ai", state.aiEnabled === false ? T.aiUnavailable : T.greet);
+    ensureChips();
+}
+
+function insertMsg(el) {
+    if (chipsEl && chipsEl.parentNode === els.messages) els.messages.insertBefore(el, chipsEl);
+    else els.messages.appendChild(el);
+    scrollToBottom();
 }
 
 function addBubble(kind, text) {
     const el = document.createElement("div");
     el.className = "bubble " + kind;
     el.textContent = text;
-    els.messages.appendChild(el);
-    scrollToBottom();
+    insertMsg(el);
     return el;
 }
 
@@ -165,9 +212,55 @@ function addTyping() {
     const el = document.createElement("div");
     el.className = "bubble ai";
     el.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
-    els.messages.appendChild(el);
-    scrollToBottom();
+    insertMsg(el);
     return el;
+}
+
+// ---------- История запросов ----------
+
+const HISTORY_KEY = "mi_history";
+
+function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+}
+function saveHistory(arr) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr)); } catch (e) { /* игнор */ }
+}
+function addHistory(query) {
+    query = (query || "").trim();
+    if (!query) return;
+    let arr = loadHistory().filter((q) => q !== query);
+    arr.unshift(query);
+    if (arr.length > 30) arr = arr.slice(0, 30);
+    saveHistory(arr);
+}
+function renderHistory() {
+    const arr = loadHistory();
+    els.historyList.innerHTML = "";
+    if (!arr.length) {
+        const e = document.createElement("div");
+        e.className = "history-empty";
+        e.textContent = "Пока нет запросов";
+        els.historyList.appendChild(e);
+        return;
+    }
+    arr.forEach((q) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "history-item";
+        b.textContent = q;
+        b.title = q;
+        b.addEventListener("click", () => { fillInput(q); els.historyPanel.hidden = true; });
+        els.historyList.appendChild(b);
+    });
+}
+function toggleHistory() {
+    if (els.historyPanel.hidden) { renderHistory(); els.historyPanel.hidden = false; }
+    else els.historyPanel.hidden = true;
+}
+function clearHistory() {
+    saveHistory([]);
+    renderHistory();
 }
 
 function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
@@ -208,6 +301,7 @@ let sending = false;
 async function sendChat() {
     const text = els.chatInput.value.trim();
     if (!text || sending) return;
+    addHistory(text);
     sending = true;
     els.chatSend.disabled = true;
     els.chatInput.value = "";
@@ -324,6 +418,7 @@ async function resetChat() {
     if (sending) return;
     try { await api("/api/ai/reset"); } catch (e) { /* не критично */ }
     els.messages.innerHTML = "";
+    chipsEl = null;
     greetChat();
     tg?.HapticFeedback?.impactOccurred("light");
 }
@@ -356,6 +451,15 @@ els.registerBtn.addEventListener("click", openSite);
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);
+
+// История запросов
+els.historyBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHistory(); });
+els.historyClear.addEventListener("click", clearHistory);
+document.addEventListener("click", (e) => {
+    if (els.historyPanel.hidden) return;
+    if (els.historyPanel.contains(e.target) || els.historyBtn.contains(e.target)) return;
+    els.historyPanel.hidden = true;
+});
 els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }

@@ -75,7 +75,7 @@ def _main_keyboard() -> InlineKeyboardMarkup:
     """Навигация под главным сообщением + большая кнопка открытия Mini App."""
     rows = [
         [InlineKeyboardButton(text="🤝 Поделиться с другом", callback_data="nav:partners")],
-        [InlineKeyboardButton(text="📖 Инструкция", callback_data="nav:instruction")],
+        [InlineKeyboardButton(text="📖 Как пользоваться", callback_data="nav:instruction")],
     ]
     url = webapp_url()
     if url:
