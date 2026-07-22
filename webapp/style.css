@@ -84,7 +84,7 @@ body {
     padding: 28px 22px; box-shadow: 0 12px 30px rgba(17, 17, 17, .05);
 }
 .logo-img { display: block; width: 100%; max-width: 220px; height: auto; margin: 4px auto 18px; }
-.subtitle { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; text-align: center; }
+.subtitle { margin: 0 0 22px; color: var(--muted); font-size: 15px; line-height: 1.5; text-align: center; }
 .subtitle a { color: var(--brand); font-weight: 600; text-decoration: none; }
 form { display: flex; flex-direction: column; gap: 16px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }

@@ -16,7 +16,7 @@ const els = {
     loading: document.getElementById("loading"),
     register: document.getElementById("screen-register"),
     app: document.getElementById("app"),
-    siteLink: document.getElementById("site-link"),
+    registerBtn: document.getElementById("register-btn"),
     messages: document.getElementById("messages"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
@@ -352,7 +352,7 @@ function logout() {
 
 // ---------- События ----------
 
-els.siteLink.addEventListener("click", (e) => { e.preventDefault(); openSite(); });
+els.registerBtn.addEventListener("click", openSite);
 
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);
