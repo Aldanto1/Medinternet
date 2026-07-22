@@ -81,6 +81,37 @@ async def init() -> None:
             )
             """
         )
+        # История чатов для страницы «История» в Mini App.
+        # RX Code AI не отдаёт переписку, поэтому дублируем её у себя:
+        # чат создаётся при первом сохранённом сообщении, название — первый вопрос.
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chats (
+                id          BIGSERIAL PRIMARY KEY,
+                telegram_id BIGINT NOT NULL,
+                rx_chat_id  TEXT NOT NULL UNIQUE,
+                title       TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS chats_telegram_id_idx ON chats (telegram_id)"
+        )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id         BIGSERIAL PRIMARY KEY,
+                chat_id    BIGINT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+                role       TEXT NOT NULL,
+                content    TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS chat_messages_chat_id_idx ON chat_messages (chat_id)"
+        )
 
 
 async def close() -> None:
@@ -181,14 +212,6 @@ async def get_user(telegram_id: int):
         )
 
 
-async def delete_user(telegram_id: int) -> None:
-    """Выход из аккаунта: удаляет пользователя и его активную сессию чата."""
-    assert _pool is not None, "db.init() ещё не вызван"
-    async with _pool.acquire() as conn:
-        await conn.execute("DELETE FROM ai_sessions WHERE telegram_id = $1", telegram_id)
-        await conn.execute("DELETE FROM users WHERE telegram_id = $1", telegram_id)
-
-
 async def user_exists(telegram_id: int) -> bool:
     """True, если пользователь уже прошёл регистрацию."""
     assert _pool is not None, "db.init() ещё не вызван"
@@ -231,6 +254,73 @@ async def clear_ai_session(telegram_id: int) -> None:
     async with _pool.acquire() as conn:
         await conn.execute(
             "DELETE FROM ai_sessions WHERE telegram_id = $1", telegram_id
+        )
+
+
+async def save_chat_message(
+    telegram_id: int, rx_chat_id: str, role: str, content: str
+) -> None:
+    """Сохраняет сообщение переписки в историю (role: 'user' | 'ai').
+
+    Чат создаётся лениво при первом сообщении; первый вопрос пользователя
+    становится названием чата."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    if not content:
+        return
+    async with _pool.acquire() as conn:
+        chat_id = await conn.fetchval(
+            """
+            INSERT INTO chats (telegram_id, rx_chat_id) VALUES ($1, $2)
+            ON CONFLICT (rx_chat_id) DO UPDATE SET rx_chat_id = EXCLUDED.rx_chat_id
+            RETURNING id
+            """,
+            telegram_id,
+            rx_chat_id,
+        )
+        await conn.execute(
+            "INSERT INTO chat_messages (chat_id, role, content) VALUES ($1, $2, $3)",
+            chat_id,
+            role,
+            content,
+        )
+        if role == "user":
+            await conn.execute(
+                "UPDATE chats SET title = $2 WHERE id = $1 AND title IS NULL",
+                chat_id,
+                content[:200],
+            )
+
+
+async def list_chats(telegram_id: int):
+    """Чаты пользователя для страницы «История» (новые сверху).
+
+    Чаты без названия (без единого сообщения пользователя) не показываем."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        return await conn.fetch(
+            """
+            SELECT id, title, created_at FROM chats
+            WHERE telegram_id = $1 AND title IS NOT NULL
+            ORDER BY created_at DESC
+            """,
+            telegram_id,
+        )
+
+
+async def get_chat_messages(telegram_id: int, chat_id: int):
+    """Сообщения чата по порядку (с проверкой, что чат принадлежит пользователю)."""
+    assert _pool is not None, "db.init() ещё не вызван"
+    async with _pool.acquire() as conn:
+        return await conn.fetch(
+            """
+            SELECT m.role, m.content, m.created_at
+            FROM chat_messages m
+            JOIN chats c ON c.id = m.chat_id
+            WHERE m.chat_id = $1 AND c.telegram_id = $2
+            ORDER BY m.id
+            """,
+            chat_id,
+            telegram_id,
         )
 
 

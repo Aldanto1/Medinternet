@@ -2,14 +2,11 @@ const tg = window.Telegram?.WebApp;
 const initData = tg?.initData || "";
 
 const T = {
-    searcher: "Медицинский поисковик",
-    submit: "Зарегистрироваться",
-    submitting: "Отправка…",
     greet: "Здравствуйте! Задайте медицинский вопрос — я постараюсь помочь.",
     aiUnavailable: "Чат временно недоступен.",
     errGeneric: "Что-то пошло не так. Попробуйте позже.",
-    sources: "Источники:",
-    emptyAnswer: "Пустой ответ.",
+    loadingHistory: "Загрузка…",
+    emptyHistory: "Пока нет чатов",
 };
 
 const els = {
@@ -17,18 +14,23 @@ const els = {
     register: document.getElementById("screen-register"),
     app: document.getElementById("app"),
     registerBtn: document.getElementById("register-btn"),
+    pageSearch: document.getElementById("page-search"),
+    pageHistory: document.getElementById("page-history"),
+    pageChatView: document.getElementById("page-chat-view"),
     messages: document.getElementById("messages"),
     chatForm: document.getElementById("chat-form"),
     chatInput: document.getElementById("chat-input"),
     chatSend: document.getElementById("chat-send"),
     chatReset: document.getElementById("chat-reset"),
     historyBtn: document.getElementById("history-btn"),
-    historyPanel: document.getElementById("history-panel"),
-    historyList: document.getElementById("history-list"),
-    historyClear: document.getElementById("history-clear"),
+    historyBack: document.getElementById("history-back"),
+    chatList: document.getElementById("chat-list"),
+    chatViewBack: document.getElementById("chat-view-back"),
+    chatViewTitle: document.getElementById("chat-view-title"),
+    chatViewMessages: document.getElementById("chat-view-messages"),
 };
 
-let state = { registered: false, aiEnabled: false, user: null, screen: "loading", tab: "search" };
+let state = { registered: false, aiEnabled: false, user: null, screen: "loading" };
 
 // ---------- Общее ----------
 
@@ -64,7 +66,7 @@ function toggleTheme() {
     applyTheme(cur === "dark" ? "light" : "dark");
 }
 
-// ---------- Экраны и вкладки ----------
+// ---------- Экраны и страницы ----------
 
 function showScreen(name) {
     state.screen = name;
@@ -74,21 +76,17 @@ function showScreen(name) {
     tg?.BackButton?.hide();
 }
 
-function switchTab(name) {
-    state.tab = name;
-    document.getElementById("tab-search").hidden = name !== "search";
-    document.getElementById("tab-profile").hidden = name !== "profile";
-    document.getElementById("tab-info").hidden = name !== "info";
-    document.querySelectorAll(".nav-btn").forEach((b) => {
-        b.classList.toggle("active", b.dataset.tab === name);
-    });
-    if (name === "search") greetChat();
-    if (name === "profile") renderProfile();
+// Страницы внутри приложения: поисковик / список чатов / просмотр чата
+function showPage(name) {
+    els.pageSearch.hidden = name !== "search";
+    els.pageHistory.hidden = name !== "history";
+    els.pageChatView.hidden = name !== "chatview";
 }
 
 function openApp() {
     showScreen("app");
-    switchTab("search");
+    showPage("search");
+    greetChat();
 }
 
 // ---------- Инициализация ----------
@@ -127,27 +125,6 @@ document.addEventListener("visibilitychange", () => {
     if (document.hidden) closeAfterSiteVisit();
 });
 window.addEventListener("blur", closeAfterSiteVisit);
-
-// ---------- Личный кабинет ----------
-
-function tgDisplayName() {
-    const u = tg?.initDataUnsafe?.user;
-    const name = u ? [u.first_name, u.last_name].filter(Boolean).join(" ") : "";
-    return name || "Пользователь";
-}
-
-function renderProfile() {
-    const u = state.user || {};
-    const name = tgDisplayName();
-    document.getElementById("pf-name").textContent = name;
-    document.getElementById("pf-initial").textContent = (name.trim()[0] || "?");
-    document.getElementById("pf-fio").textContent = u.full_name || "—";
-    document.getElementById("pf-specialty").textContent = u.specialty || "—";
-    document.getElementById("pf-position").textContent = u.position || "—";
-    const tariff = u.tariff || "Обычный";
-    document.getElementById("pf-tariff").textContent = tariff;
-    document.getElementById("pf-tariff-name").textContent = tariff;
-}
 
 // ---------- Чат ----------
 
@@ -223,51 +200,62 @@ function addTyping() {
     return el;
 }
 
-// ---------- История запросов ----------
+// ---------- Кнопки под ответом: копировать / лайк / дизлайк ----------
 
-const HISTORY_KEY = "mi_history";
+const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+const ICON_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>';
 
-function loadHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+function legacyCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* игнор */ }
+    ta.remove();
 }
-function saveHistory(arr) {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr)); } catch (e) { /* игнор */ }
-}
-function addHistory(query) {
-    query = (query || "").trim();
-    if (!query) return;
-    let arr = loadHistory().filter((q) => q !== query);
-    arr.unshift(query);
-    if (arr.length > 30) arr = arr.slice(0, 30);
-    saveHistory(arr);
-}
-function renderHistory() {
-    const arr = loadHistory();
-    els.historyList.innerHTML = "";
-    if (!arr.length) {
-        const e = document.createElement("div");
-        e.className = "history-empty";
-        e.textContent = "Пока нет запросов";
-        els.historyList.appendChild(e);
-        return;
+function copyAnswer(text, btn) {
+    const done = () => {
+        btn.classList.add("copied");
+        tg?.HapticFeedback?.notificationOccurred?.("success");
+        setTimeout(() => btn.classList.remove("copied"), 1400);
+    };
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
+    } else {
+        legacyCopy(text, done);
     }
-    arr.forEach((q) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "history-item";
-        b.textContent = q;
-        b.title = q;
-        b.addEventListener("click", () => { fillInput(q); els.historyPanel.hidden = true; });
-        els.historyList.appendChild(b);
-    });
 }
-function toggleHistory() {
-    if (els.historyPanel.hidden) { renderHistory(); els.historyPanel.hidden = false; }
-    else els.historyPanel.hidden = true;
+// Оценка ответа. Отправка в API будет добавлена позже — пока только состояние кнопок.
+function vote(btn, other) {
+    const wasActive = btn.classList.contains("active");
+    other.classList.remove("active");
+    btn.classList.toggle("active", !wasActive);
+    tg?.HapticFeedback?.impactOccurred?.("light");
 }
-function clearHistory() {
-    saveHistory([]);
-    renderHistory();
+function addAnswerActions(bubble) {
+    if (bubble.nextSibling?.classList?.contains("msg-actions")) return;
+    const row = document.createElement("div");
+    row.className = "msg-actions";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button"; copyBtn.className = "act-btn act-copy"; copyBtn.title = "Скопировать ответ";
+    copyBtn.innerHTML = ICON_COPY;
+    copyBtn.addEventListener("click", () => copyAnswer(bubble.innerText.trim(), copyBtn));
+
+    const likeBtn = document.createElement("button");
+    likeBtn.type = "button"; likeBtn.className = "act-btn act-vote act-like"; likeBtn.title = "Нравится";
+    likeBtn.innerHTML = ICON_UP;
+
+    const dislikeBtn = document.createElement("button");
+    dislikeBtn.type = "button"; dislikeBtn.className = "act-btn act-vote act-dislike"; dislikeBtn.title = "Не нравится";
+    dislikeBtn.innerHTML = ICON_DOWN;
+
+    likeBtn.addEventListener("click", () => vote(likeBtn, dislikeBtn));
+    dislikeBtn.addEventListener("click", () => vote(dislikeBtn, likeBtn));
+
+    row.append(copyBtn, likeBtn, dislikeBtn);
+    bubble.parentNode.insertBefore(row, bubble.nextSibling);
+    scrollToBottom();
 }
 
 function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
@@ -308,7 +296,6 @@ let sending = false;
 async function sendChat() {
     const text = els.chatInput.value.trim();
     if (!text || sending) return;
-    addHistory(text);
     sending = true;
     els.chatSend.disabled = true;
     els.chatInput.value = "";
@@ -336,6 +323,7 @@ async function sendChat() {
     function finish() {
         sending = false;
         els.chatSend.disabled = false;
+        if (bubble) addAnswerActions(bubble);   // кнопки копировать/лайк/дизлайк
         // Если нейросеть не прислала уточняющих вопросов — возвращаем статичные подсказки
         if (!gotSuggestions) showStaticChips();
     }
@@ -445,24 +433,81 @@ function autoGrow() {
     box.style.height = Math.min(box.scrollHeight, 120) + "px";
 }
 
-// ---------- Информация ----------
+// ---------- История: список чатов и просмотр переписки ----------
+// Загружается ТОЛЬКО по нажатию кнопки истории, не при старте Mini App.
 
-function comingSoon(what) {
-    const msg = what + " — скоро будет доступно.";
-    if (tg?.showAlert) tg.showAlert(msg); else alert(msg);
+function historyNote(container, text) {
+    container.innerHTML = "";
+    const e = document.createElement("div");
+    e.className = "history-empty";
+    e.textContent = text;
+    container.appendChild(e);
 }
 
-function logout() {
-    const doLogout = async () => {
-        try { await api("/api/logout"); } catch (e) { /* всё равно выходим */ }
-        try { localStorage.removeItem("mi_history"); } catch (e) { /* игнор */ }
-        tg?.close?.();
-    };
-    if (tg?.showConfirm) {
-        tg.showConfirm("Выйти из аккаунта?", (ok) => { if (ok) doLogout(); });
-    } else if (confirm("Выйти из аккаунта?")) {
-        doLogout();
+function fmtDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })
+        + ", " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function openHistory() {
+    showPage("history");
+    historyNote(els.chatList, T.loadingHistory);
+    try {
+        const data = await api("/api/history/chats");
+        renderChatList(data.chats || []);
+    } catch (e) {
+        historyNote(els.chatList, e.message || T.errGeneric);
     }
+}
+
+function renderChatList(chats) {
+    if (!chats.length) { historyNote(els.chatList, T.emptyHistory); return; }
+    els.chatList.innerHTML = "";
+    chats.forEach((chat) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chat-item";
+        const title = document.createElement("div");
+        title.className = "chat-item-title";
+        title.textContent = chat.title;
+        const date = document.createElement("div");
+        date.className = "chat-item-date";
+        date.textContent = fmtDate(chat.created_at);
+        b.append(title, date);
+        b.addEventListener("click", () => openChatView(chat));
+        els.chatList.appendChild(b);
+    });
+}
+
+async function openChatView(chat) {
+    showPage("chatview");
+    els.chatViewTitle.textContent = chat.title;
+    historyNote(els.chatViewMessages, T.loadingHistory);
+    try {
+        const data = await api("/api/history/messages", { chat_id: chat.id });
+        renderChatMessages(data.messages || []);
+    } catch (e) {
+        historyNote(els.chatViewMessages, e.message || T.errGeneric);
+    }
+}
+
+function renderChatMessages(messages) {
+    els.chatViewMessages.innerHTML = "";
+    messages.forEach((m) => {
+        const el = document.createElement("div");
+        if (m.role === "user") {
+            el.className = "bubble user";
+            el.textContent = m.content;
+        } else {
+            el.className = "bubble ai";
+            el.style.whiteSpace = "normal";
+            el.innerHTML = mdToHtml(m.content);
+        }
+        els.chatViewMessages.appendChild(el);
+    });
+    els.chatViewMessages.scrollTop = 0;
 }
 
 // ---------- События ----------
@@ -472,31 +517,14 @@ els.registerBtn.addEventListener("click", openSite);
 els.chatForm.addEventListener("submit", (e) => { e.preventDefault(); sendChat(); });
 els.chatReset.addEventListener("click", resetChat);
 
-// История запросов
-els.historyBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleHistory(); });
-els.historyClear.addEventListener("click", clearHistory);
-document.addEventListener("click", (e) => {
-    if (els.historyPanel.hidden) return;
-    if (els.historyPanel.contains(e.target) || els.historyBtn.contains(e.target)) return;
-    els.historyPanel.hidden = true;
-});
+els.historyBtn.addEventListener("click", openHistory);
+els.historyBack.addEventListener("click", () => showPage("search"));
+els.chatViewBack.addEventListener("click", () => showPage("history"));
+
 els.chatInput.addEventListener("input", autoGrow);
 els.chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
 document.querySelectorAll(".theme-toggle").forEach((b) => b.addEventListener("click", toggleTheme));
-
-document.querySelectorAll(".nav-btn").forEach((b) => {
-    b.addEventListener("click", () => switchTab(b.dataset.tab));
-});
-
-document.getElementById("upgrade-btn").addEventListener("click", () => comingSoon("Тариф «Плюс»"));
-document.getElementById("logout-btn").addEventListener("click", logout);
-
-// Модалка «Как пользоваться»
-const howtoModal = document.getElementById("howto-modal");
-document.getElementById("howto-btn").addEventListener("click", () => { howtoModal.hidden = false; });
-document.getElementById("howto-close").addEventListener("click", () => { howtoModal.hidden = true; });
-howtoModal.addEventListener("click", (e) => { if (e.target === howtoModal) howtoModal.hidden = true; });
 
 init();

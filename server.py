@@ -13,7 +13,6 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import ai_client
 import db
-import handlers
 import link_token
 from config import BOT_TOKEN, WEBAPP_HOST, WEBAPP_PORT, WEBAPP_URL, WEBAPP_VERSION, webapp_url
 
@@ -219,6 +218,10 @@ async def handle_ai_message(request: web.Request) -> web.Response:
             {"ok": False, "error": "Нейросеть недоступна, попробуйте позже"}, status=502
         )
 
+    # Дублируем переписку в свою БД — для страницы «История» в Mini App
+    await db.save_chat_message(tg_id, chat_id, "user", message)
+    await db.save_chat_message(tg_id, chat_id, "ai", answer["markdown"] or "")
+
     return web.json_response({
         "ok": True,
         "answer_html": answer["html"],
@@ -263,8 +266,15 @@ async def handle_ai_stream(request: web.Request) -> web.Response:
     queue: asyncio.Queue = asyncio.Queue()
 
     async def feed(cid):
+        parts = []  # накапливаем текст ответа, чтобы сохранить его в историю целиком
         async for kind, value in ai_client.stream_message(cid, message):
+            if kind == "text":
+                parts.append(value)
             await queue.put(("event", (kind, value)))
+        # Сохраняем в историю только успешный обмен (вопрос + непустой ответ)
+        if parts:
+            await db.save_chat_message(tg_id, cid, "user", message)
+            await db.save_chat_message(tg_id, cid, "ai", "".join(parts))
 
     async def producer():
         try:
@@ -317,27 +327,37 @@ async def handle_ai_reset(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
-async def handle_logout(request: web.Request) -> web.Response:
-    """Выход из аккаунта: удаляет пользователя и шлёт стартовое сообщение
-    для незарегистрированных (при следующем заходе снова экран регистрации)."""
+async def handle_history_chats(request: web.Request) -> web.Response:
+    """Список чатов пользователя для страницы «История».
+
+    Запрашивается только по нажатию кнопки истории (не при старте Mini App)."""
     tg_user, _body, err = await _authenticated_user(request)
     if err is not None:
         return err
-    tg_id = tg_user["id"]
-    await db.delete_user(tg_id)
-    logger.info("Пользователь %s вышел из аккаунта", tg_id)
+    rows = await db.list_chats(tg_user["id"])
+    chats = [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+    return web.json_response({"ok": True, "chats": chats})
 
-    bot = request.app.get("bot")
-    if bot is not None:
-        full_name = " ".join(
-            p for p in (tg_user.get("first_name"), tg_user.get("last_name")) if p
-        ) or "коллега"
-        try:
-            await handlers.send_main_message(bot, tg_id, full_name, tg_id)
-        except Exception as e:
-            logger.warning("Не удалось отправить стартовое сообщение после выхода %s: %s", tg_id, e)
 
-    return web.json_response({"ok": True})
+async def handle_history_messages(request: web.Request) -> web.Response:
+    """Переписка выбранного чата (только просмотр)."""
+    tg_user, body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+    try:
+        chat_id = int(body.get("chat_id"))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "Неверный id чата"}, status=400)
+    rows = await db.get_chat_messages(tg_user["id"], chat_id)
+    messages = [{"role": r["role"], "content": r["content"]} for r in rows]
+    return web.json_response({"ok": True, "messages": messages})
 
 
 def _file(name: str):
@@ -395,7 +415,8 @@ def build_app(bot=None, bot_username: str = "") -> web.Application:
     app.router.add_post("/api/ai/message", handle_ai_message)
     app.router.add_post("/api/ai/message/stream", handle_ai_stream)
     app.router.add_post("/api/ai/reset", handle_ai_reset)
-    app.router.add_post("/api/logout", handle_logout)
+    app.router.add_post("/api/history/chats", handle_history_chats)
+    app.router.add_post("/api/history/messages", handle_history_messages)
     return app
 
 
