@@ -335,6 +335,33 @@ async def handle_ai_reset(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_ai_vote(request: web.Request) -> web.Response:
+    """Оценка ответа ИИ (лайк/дизлайк) — уходит в RX Code AI."""
+    tg_user, body, err = await _authenticated_user(request)
+    if err is not None:
+        return err
+
+    message_id = str(body.get("message_id") or "").strip()
+    vote = str(body.get("vote") or "").strip()
+    if not message_id or vote not in ("like", "dislike"):
+        return web.json_response({"ok": False, "error": "Неверные параметры"}, status=400)
+
+    tg_id = tg_user["id"]
+    chat_id = await db.get_ai_chat_id(tg_id)
+    if not chat_id:
+        return web.json_response({"ok": False, "error": "Сессия не найдена"}, status=404)
+
+    try:
+        await ai_client.rate_message(chat_id, message_id, vote == "like")
+    except ai_client.AIError as e:
+        logger.warning("Не удалось отправить оценку (%s) от %s: %s", vote, tg_id, e)
+        return web.json_response(
+            {"ok": False, "error": "Не удалось отправить оценку"}, status=502
+        )
+
+    return web.json_response({"ok": True})
+
+
 async def handle_history_chats(request: web.Request) -> web.Response:
     """Список чатов пользователя для страницы «История».
 
@@ -424,6 +451,7 @@ def build_app(bot=None, bot_username: str = "") -> web.Application:
     app.router.add_post("/api/ai/message", handle_ai_message)
     app.router.add_post("/api/ai/message/stream", handle_ai_stream)
     app.router.add_post("/api/ai/reset", handle_ai_reset)
+    app.router.add_post("/api/ai/vote", handle_ai_vote)
     app.router.add_post("/api/history/chats", handle_history_chats)
     app.router.add_post("/api/history/messages", handle_history_messages)
     return app

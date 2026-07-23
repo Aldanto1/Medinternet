@@ -81,6 +81,23 @@ async def send_message(chat_id: str, message: str) -> dict:
     }
 
 
+async def rate_message(chat_id: str, message_id: str, positive: bool) -> None:
+    """Отправляет оценку ответа ИИ: лайк или дизлайк.
+
+    POST /api/chats/{chatId}/messages/{messageId}/like|dislike (тело не нужно).
+    """
+    action = "like" if positive else "dislike"
+    url = f"{NEURO_API_URL}/api/chats/{chat_id}/messages/{message_id}/{action}"
+    async with aiohttp.ClientSession(timeout=_SESSION_TIMEOUT) as session:
+        async with session.post(url, headers=_headers()) as resp:
+            if resp.status == 404:
+                raise SessionNotFound()
+            # Успех — любой 2xx: API отвечает 201 Created (в swagger заявлен 200)
+            if resp.status >= 300:
+                text = await resp.text()
+                raise AIError(f"{action} HTTP {resp.status}: {text[:200]}")
+
+
 async def stream_message(chat_id: str, message: str):
     """Асинхронный генератор ответа (SSE от RX Code).
 
@@ -113,6 +130,10 @@ async def stream_message(chat_id: str, message: str):
                     yield ("text", obj["Text"])
                 elif obj.get("Action"):
                     yield ("action", obj["Action"])
-                elif obj.get("Suggestions"):
-                    # Финальное событие: уточняющие вопросы для чипсов-подсказок
-                    yield ("suggestions", obj["Suggestions"])
+                else:
+                    # Финальное событие: id сообщения (для лайка/дизлайка)
+                    # и уточняющие вопросы для чипсов-подсказок
+                    if obj.get("Id"):
+                        yield ("message_id", obj["Id"])
+                    if obj.get("Suggestions"):
+                        yield ("suggestions", obj["Suggestions"])

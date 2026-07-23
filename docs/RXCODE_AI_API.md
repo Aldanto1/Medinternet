@@ -52,8 +52,13 @@ POST /api/chats
 | `POST` | `/api/chats/{chatId}/messages/stream` | То же, но потоком (используем) |
 | `GET` | `/api/chats/{chatId}/messages` | **Получить переписку чата** |
 | `GET` | `/api/chats/{chatId}/messages/count` | Число сообщений |
-| `POST` | `/api/chats/{chatId}/messages/{messageId}/like` | Лайк ответа |
-| `POST` | `/api/chats/{chatId}/messages/{messageId}/dislike` | Дизлайк ответа |
+| `POST` | `/api/chats/{chatId}/messages/{messageId}/like` | Лайк ответа (используем) |
+| `POST` | `/api/chats/{chatId}/messages/{messageId}/dislike` | Дизлайк ответа (используем) |
+
+> **Оценки:** тело запроса не нужно. Фактически отвечает **`201 Created`** с пустым
+> телом (в swagger заявлен `200` с `PostMessageResponse`) — поэтому в коде успехом
+> считается любой `2xx`. `messageId` берём из поля `Id` финального события стрима.
+> Эндпоинта «снять оценку» нет.
 
 **Запрос:** `{ "Message": "<вопрос>", "RemovePersonalData": true|null }` (`Message` обязателен).
 
@@ -70,9 +75,10 @@ POST /api/chats
 **Ответ (стрим)** — SSE, строки `data: {…}`:
 - `{"Action": "Ищу данные в базе знаний"}` — статусы обработки (обычно 5 штук);
 - `{"Text": "кусок ответа"}` — куски Markdown, ~100–140 штук;
-- **финальное событие** — `{Id, Summary, Verified, RAG, Notes, Sources, Suggestions}`,
-  где **`Suggestions`** — список из 3 уточняющих вопросов (мы показываем их
-  чипсами-подсказками под ответом).
+- **финальное событие** — `{Id, Summary, Verified, RAG, Notes, Sources, Suggestions}`:
+  - **`Id`** — идентификатор ответа, нужен для лайка/дизлайка;
+  - **`Suggestions`** — список из 3 уточняющих вопросов (показываем их
+    чипсами-подсказками под ответом).
 
 ### Прочее
 
@@ -119,10 +125,10 @@ POST /api/chats
 1. **`GET /api/chats/{chatId}/messages`** — RX Code **отдаёт переписку чата**.
    Сейчас мы дублируем историю у себя в таблицах `chats`/`chat_messages`
    (см. [`DOCUMENTATION.md`](DOCUMENTATION.md)) — при желании историю можно тянуть из API.
-2. **`like` / `dislike`** — оценка конкретного ответа. Кнопки 👍/👎 в Mini App
-   сейчас работают только визуально; их можно подключить к этим эндпоинтам
-   (нужно сохранять `messageId` ответа).
-3. **`PATCH /api/chats/{id}`** — название чата на стороне RX Code (у нас название
+2. **`PATCH /api/chats/{id}`** — название чата на стороне RX Code (у нас название
    берётся из первого вопроса пользователя).
-4. **`GET /api/chats?userId=`** — список сессий пользователя.
-5. **`GET /api/health`** — можно использовать для мониторинга доступности ИИ.
+3. **`GET /api/chats?userId=`** — список сессий пользователя.
+4. **`GET /api/chats/{chatId}/messages/count`** — число сообщений в чате.
+
+> ⚠️ **`GET /api/health` на QA-инстансе отвечает `404`** — эндпоинт из спецификации
+> там не развёрнут, для мониторинга не годится (проверено).

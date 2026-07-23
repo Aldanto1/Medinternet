@@ -236,14 +236,17 @@ function copyAnswer(text, btn) {
         legacyCopy(text, done);
     }
 }
-// Оценка ответа. Отправка в API будет добавлена позже — пока только состояние кнопок.
-function vote(btn, other) {
+// Оценка ответа: подсвечиваем кнопку и отправляем лайк/дизлайк в API.
+// Снятие оценки в API не отправляем — «отменить» эндпоинта нет.
+function vote(btn, other, messageId, kind) {
     const wasActive = btn.classList.contains("active");
     other.classList.remove("active");
     btn.classList.toggle("active", !wasActive);
     tg?.HapticFeedback?.impactOccurred?.("light");
+    if (wasActive || !messageId) return;
+    api("/api/ai/vote", { message_id: messageId, vote: kind }).catch(() => { /* не критично */ });
 }
-function addAnswerActions(bubble) {
+function addAnswerActions(bubble, messageId) {
     if (bubble.nextSibling?.classList?.contains("msg-actions")) return;
     const row = document.createElement("div");
     row.className = "msg-actions";
@@ -261,8 +264,8 @@ function addAnswerActions(bubble) {
     dislikeBtn.type = "button"; dislikeBtn.className = "act-btn act-vote act-dislike"; dislikeBtn.title = "Не нравится";
     dislikeBtn.innerHTML = ICON_DOWN;
 
-    likeBtn.addEventListener("click", () => vote(likeBtn, dislikeBtn));
-    dislikeBtn.addEventListener("click", () => vote(dislikeBtn, likeBtn));
+    likeBtn.addEventListener("click", () => vote(likeBtn, dislikeBtn, messageId, "like"));
+    dislikeBtn.addEventListener("click", () => vote(dislikeBtn, likeBtn, messageId, "dislike"));
 
     row.append(copyBtn, likeBtn, dislikeBtn);
     bubble.parentNode.insertBefore(row, bubble.nextSibling);
@@ -320,6 +323,7 @@ async function sendChat() {
     const lineQueue = [];    // готовые строки, ждущие плавного появления
     let gotText = false;
     let gotSuggestions = false;
+    let answerMessageId = null;   // id ответа в RX Code — для лайка/дизлайка
     let streamDone = false;
     let animating = false;
 
@@ -334,7 +338,7 @@ async function sendChat() {
     function finish() {
         sending = false;
         els.chatSend.disabled = false;
-        if (bubble) addAnswerActions(bubble);   // кнопки копировать/лайк/дизлайк
+        if (bubble) addAnswerActions(bubble, answerMessageId);   // копировать/лайк/дизлайк
         // Если нейросеть не прислала уточняющих вопросов — возвращаем статичные подсказки
         if (!gotSuggestions) showStaticChips();
     }
@@ -402,6 +406,8 @@ async function sendChat() {
                 } else if (obj.kind === "text") {
                     gotText = true;
                     enqueue(obj.value);
+                } else if (obj.kind === "message_id") {
+                    answerMessageId = obj.value;
                 } else if (obj.kind === "suggestions") {
                     if (Array.isArray(obj.value) && obj.value.length) {
                         gotSuggestions = true;
