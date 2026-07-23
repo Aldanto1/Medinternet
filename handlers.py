@@ -143,6 +143,20 @@ async def send_main_message(bot, chat_id: int, full_name: str, user_id: int) -> 
     msg = await bot.send_photo(chat_id, photo, caption=caption, reply_markup=_main_keyboard())
     if _logo_file_id is None and msg.photo:
         _logo_file_id = msg.photo[-1].file_id
+    # Запоминаем id главного сообщения, чтобы удалить его после регистрации по ссылке
+    await db.set_start_prompt(user_id, chat_id, msg.message_id)
+
+
+async def _delete_prev_main(bot, user_id: int) -> None:
+    """Удаляет предыдущее главное сообщение (показанное до регистрации), если есть."""
+    prompt = await db.get_start_prompt(user_id)
+    if not prompt:
+        return
+    try:
+        await bot.delete_message(prompt["chat_id"], prompt["message_id"])
+    except Exception:
+        pass
+    await db.delete_start_prompt(user_id)
 
 
 async def _send_main(message: Message, user, user_id: int) -> None:
@@ -177,6 +191,7 @@ async def _register_via_link(message: Message, token: str) -> None:
         await message.answer(
             "Вы уже зарегистрированы ✅", reply_markup=_registered_keyboard()
         )
+        await _delete_prev_main(message.bot, user_id)
         return
 
     if not link_token.verify_link_token(token) or not await db.claim_link_token(token, user_id):
@@ -192,6 +207,8 @@ async def _register_via_link(message: Message, token: str) -> None:
     await message.answer(
         "🎉 <b>Регистрация успешна</b>", reply_markup=_registered_keyboard()
     )
+    # Удаляем старое (до-регистрационное) главное сообщение, чтобы не дублировалось
+    await _delete_prev_main(message.bot, user_id)
 
 
 # ---------- Навигация по кнопкам главного меню ----------
