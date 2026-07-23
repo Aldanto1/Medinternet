@@ -98,6 +98,12 @@ async def init() -> None:
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS chats_telegram_id_idx ON chats (telegram_id)"
         )
+        # Миграция: в старой БД таблица chats могла быть создана без rx_chat_id
+        # (тогда CREATE TABLE IF NOT EXISTS выше — no-op, и save_chat_message падал).
+        await conn.execute("ALTER TABLE chats ADD COLUMN IF NOT EXISTS rx_chat_id TEXT")
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS chats_rx_chat_id_key ON chats (rx_chat_id)"
+        )
         await conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_messages (

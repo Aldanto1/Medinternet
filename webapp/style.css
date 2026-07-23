@@ -135,21 +135,17 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
 :root[data-theme="dark"] .chip-suggest { color: var(--brand); }
 .chip-suggest:active { opacity: .8; }
 
-/* ---------- Скроллбары: видимый серый ползунок (особенно в светлой теме) ---------- */
+/* ---------- Скроллбар области сообщений: видимый серый ползунок ---------- */
 .messages { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, .32) transparent; }
-#chat-input { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, .28) transparent; }
 :root[data-theme="dark"] .messages { scrollbar-color: rgba(255, 255, 255, .3) transparent; }
-:root[data-theme="dark"] #chat-input { scrollbar-color: rgba(255, 255, 255, .26) transparent; }
 .messages::-webkit-scrollbar { width: 7px; }
-#chat-input::-webkit-scrollbar { width: 5px; }
-.messages::-webkit-scrollbar-track, #chat-input::-webkit-scrollbar-track { background: transparent; }
-.messages::-webkit-scrollbar-thumb, #chat-input::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, .32); border-radius: 4px;
-}
-:root[data-theme="dark"] .messages::-webkit-scrollbar-thumb,
-:root[data-theme="dark"] #chat-input::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, .3);
-}
+.messages::-webkit-scrollbar-track { background: transparent; }
+.messages::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, .32); border-radius: 4px; }
+:root[data-theme="dark"] .messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); }
+
+/* Строка ввода: полоса скролла скрыта, но скроллить колесиком/тачем можно */
+#chat-input { scrollbar-width: none; }
+#chat-input::-webkit-scrollbar { display: none; }
 
 /* ---------- Верхняя панель ---------- */
 .topbar {

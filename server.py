@@ -219,8 +219,12 @@ async def handle_ai_message(request: web.Request) -> web.Response:
         )
 
     # Дублируем переписку в свою БД — для страницы «История» в Mini App
-    await db.save_chat_message(tg_id, chat_id, "user", message)
-    await db.save_chat_message(tg_id, chat_id, "ai", answer["markdown"] or "")
+    # (ошибка сохранения не должна ломать ответ пользователю).
+    try:
+        await db.save_chat_message(tg_id, chat_id, "user", message)
+        await db.save_chat_message(tg_id, chat_id, "ai", answer["markdown"] or "")
+    except Exception as e:
+        logger.warning("Не удалось сохранить историю чата %s: %s", tg_id, e)
 
     return web.json_response({
         "ok": True,
@@ -271,10 +275,14 @@ async def handle_ai_stream(request: web.Request) -> web.Response:
             if kind == "text":
                 parts.append(value)
             await queue.put(("event", (kind, value)))
-        # Сохраняем в историю только успешный обмен (вопрос + непустой ответ)
+        # Сохраняем в историю только успешный обмен (вопрос + непустой ответ).
+        # Ошибка сохранения истории НЕ должна ломать ответ пользователю.
         if parts:
-            await db.save_chat_message(tg_id, cid, "user", message)
-            await db.save_chat_message(tg_id, cid, "ai", "".join(parts))
+            try:
+                await db.save_chat_message(tg_id, cid, "user", message)
+                await db.save_chat_message(tg_id, cid, "ai", "".join(parts))
+            except Exception as e:
+                logger.warning("Не удалось сохранить историю чата %s: %s", tg_id, e)
 
     async def producer():
         try:
