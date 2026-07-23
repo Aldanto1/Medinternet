@@ -69,6 +69,7 @@ def _main_keyboard() -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text="🤝 Поделиться с другом", callback_data="nav:partners")],
         [InlineKeyboardButton(text="📖 Как пользоваться", callback_data="nav:instruction")],
+        [InlineKeyboardButton(text="📄 Политика конфиденциальности", url=SITE_URL)],
     ]
     url = webapp_url()
     if url:
