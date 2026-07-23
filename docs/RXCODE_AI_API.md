@@ -118,7 +118,7 @@ POST /api/chats
 
 1. **`GET /api/chats/{chatId}/messages`** — RX Code **отдаёт переписку чата**.
    Сейчас мы дублируем историю у себя в таблицах `chats`/`chat_messages`
-   (см. [`DEVELOPERS.md`](DEVELOPERS.md)) — при желании историю можно тянуть из API.
+   (см. [`DOCUMENTATION.md`](DOCUMENTATION.md)) — при желании историю можно тянуть из API.
 2. **`like` / `dislike`** — оценка конкретного ответа. Кнопки 👍/👎 в Mini App
    сейчас работают только визуально; их можно подключить к этим эндпоинтам
    (нужно сохранять `messageId` ответа).
