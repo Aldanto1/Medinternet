@@ -11,6 +11,7 @@ from aiogram.types import (
     WebAppInfo,
     FSInputFile,
     LinkPreviewOptions,
+    CopyTextButton,
 )
 
 import db
@@ -101,15 +102,19 @@ def _back_keyboard() -> InlineKeyboardMarkup:
 
 
 def _partners_keyboard(bot_username: str) -> InlineKeyboardMarkup:
-    """Кнопки шеринга приглашения + возврат."""
+    """Кнопки шеринга приглашения: копировать ссылку + Telegram/MAX/WhatsApp + возврат."""
     bot_link = f"https://t.me/{bot_username}"
     invite = "Присоединяйтесь к Мединтернету — медицинскому ИИ-поисковику для врачей и фармацевтов:"
+    invite_full = invite + " " + bot_link
     tg_share = f"https://t.me/share/url?url={quote(bot_link)}&text={quote(invite)}"
-    wa_share = f"https://wa.me/?text={quote(invite + ' ' + bot_link)}"
+    max_share = f"https://max.ru/:share?text={quote(invite_full)}"
+    wa_share = f"https://wa.me/?text={quote(invite_full)}"
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📨 Отправить в Telegram", url=tg_share)],
-            [InlineKeyboardButton(text="💬 Отправить в WhatsApp", url=wa_share)],
+            [InlineKeyboardButton(text="🔗 Скопировать ссылку", copy_text=CopyTextButton(text=bot_link))],
+            [InlineKeyboardButton(text="✈️ Поделиться в Telegram", url=tg_share)],
+            [InlineKeyboardButton(text="🔷 Поделиться в MAX", url=max_share)],
+            [InlineKeyboardButton(text="💬 Поделиться в WhatsApp", url=wa_share)],
             [InlineKeyboardButton(text="← Вернуться", callback_data="nav:home")],
         ]
     )
